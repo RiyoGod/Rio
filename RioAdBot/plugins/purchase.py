@@ -2,7 +2,7 @@ import requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import CallbackContext
 
-# 🔹 Your CryptoBot API Key
+# 🔹 CryptoBot API Key
 CRYPTOBOT_SECRET = "335607:AA3yJu1fkPWWbczmD6hw8uesXCiAwzIJWm1"
 
 # 🔹 Function to Create Invoice
@@ -46,6 +46,8 @@ def check_payment(invoice_id):
 
 # 🔹 Purchase Command (Async)
 async def purchase_command(update: Update, context: CallbackContext):
+    print("✅ /purchase command triggered!")  # ✅ Debugging log
+
     message = (
         "> **Choose Your Plan!!**\n\n"
         "▫ **Basic Plan**\n"
@@ -72,7 +74,7 @@ async def purchase_command(update: Update, context: CallbackContext):
     ]
 
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.effective_chat.send_message(message, reply_markup=reply_markup, parse_mode="Markdown")
+    await update.message.reply_text(message, reply_markup=reply_markup, parse_mode="Markdown")
 
 # 🔹 Handle Button Clicks (Async)
 async def button_handler(update: Update, context: CallbackContext):
