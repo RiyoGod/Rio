@@ -1,9 +1,7 @@
-# start.py
-
 import logging
 import os
 from dotenv import load_dotenv
-from telegram.ext import Updater, CommandHandler
+from telegram.ext import Application, CommandHandler
 from RioAdBot.plugins.welcome import start
 from RioAdBot.plugins.purchase import purchase
 
@@ -21,22 +19,25 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
                     level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def main():
-    # Create Updater and pass your bot's token
-    updater = Updater(TOKEN)
+async def start_command(update, context):
+    """Handles the /start command."""
+    await start(update, context)
 
-    # Register the dispatcher to add handlers for commands
-    dispatcher = updater.dispatcher
+async def purchase_command(update, context):
+    """Handles the /purchase command."""
+    await purchase(update, context)
+
+def main():
+    # Create Application instance and pass the bot token
+    app = Application.builder().token(TOKEN).build()
 
     # Add handlers for commands
-    dispatcher.add_handler(CommandHandler("start", start))
-    dispatcher.add_handler(CommandHandler("purchase", purchase))
+    app.add_handler(CommandHandler("start", start_command))
+    app.add_handler(CommandHandler("purchase", purchase_command))
 
     # Start the Bot
-    updater.start_polling()
-
-    # Run the bot until you stop it manually (Ctrl + C)
-    updater.idle()
+    logger.info("Bot is running...")
+    app.run_polling()
 
 if __name__ == '__main__':
     main()
