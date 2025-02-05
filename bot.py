@@ -3,7 +3,8 @@ import logging
 from dotenv import load_dotenv
 from telegram.ext import Application, CommandHandler
 from RioAdBot.plugins.start import start_command
-from RioAdBot.plugins.welcome import log_new_user
+from RioAdBot.plugins.welcome import log_user_to_group  # ✅ Correct function name
+
 
 # ✅ Load environment variables
 load_dotenv()
