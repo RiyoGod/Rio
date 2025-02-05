@@ -128,4 +128,29 @@ async def button_handler(update: Update, context: CallbackContext):
             await query.edit_message_text("⚠️ **Could not check payment status.** Try again later.")
 
     elif query.data == "back_to_plans":
-        await purchase(update, context)  # Return to plan selection
+        message = (
+            "> **Choose Your Plan!!**\n\n"
+            "▫ **Basic Plan**\n"
+            "**├ Accounts: 1**\n"
+            "**├ Intervals: 5 min**\n"
+            "**•|  Price: $40/week | $100/month |•**\n\n"
+            "**▫ Premium Plan**\n"
+            "**├ Accounts: 4**\n"
+            "**├ Intervals: 30 sec**\n"
+            "**•| Price: $250/week | $500/month |•**\n\n"
+            "**▫ Immortal Plan**\n"
+            "**├ Accounts: 10**\n"
+            "**├ Intervals: 60 sec**\n"
+            "**•| Price: $500/week | $1000/month |•**\n\n"
+            "---\n\n"
+            "> Select a Plan to Continue Via Below Buttons!\n\n"
+            "For support, contact @Boostadvert."
+        )
+
+        keyboard = [
+            [InlineKeyboardButton("Basic Plan", callback_data='basic_plan')],
+            [InlineKeyboardButton("Premium Plan", callback_data='premium_plan')],
+            [InlineKeyboardButton("Immortal Plan", callback_data='immortal_plan')],
+        ]
+
+        await query.edit_message_text(message, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
