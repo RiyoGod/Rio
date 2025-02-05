@@ -2,10 +2,10 @@ import requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import CallbackContext
 
-# ðŸ”¹ Your CryptoBot API Key
+# 🔹 Your CryptoBot API Key
 CRYPTOBOT_SECRET = "335393:AAdkGGk4TEr8Hna2sWFGDhveyhXe6nSUbM2"
 
-# ðŸ”¹ Function to Create Invoice
+# 🔹 Function to Create Invoice
 def create_invoice(amount, currency, user_id):
     url = "https://pay.crypt.bot/api/createInvoice"
     headers = {"Crypto-Pay-API-Token": CRYPTOBOT_SECRET, "Content-Type": "application/json"}
@@ -26,22 +26,22 @@ def create_invoice(amount, currency, user_id):
     response = requests.post(url, headers=headers, json=payload)
     return response.json()["result"]["pay_url"]
 
-# ðŸ”¹ Purchase Command
-def purchase(update: Update, context: CallbackContext) -> None:
+# 🔹 Purchase Command (Async)
+async def purchase(update: Update, context: CallbackContext):
     message = (
         "> **Choose Your Plan!!**\n\n"
-        "â–  **Basic Plan**\n"
-        "**â”” Accounts: 1**\n"
-        "**â”” Intervals: 5 min**\n"
-        "**â€¢|  Price: $40/week | $100/month |â€¢**\n\n"
-        "**â–  Premium Plan**\n"
-        "**â”” Accounts: 4**\n"
-        "**â”” Intervals: 30 sec**\n"
-        "**â€¢| Price: $250/week | $500/month |â€¢**\n\n"
-        "**â–  Immortal Plan**\n"
-        "**â”” Accounts: 10**\n"
-        "**â”” Intervals: 60 sec**\n"
-        "**â€¢| Price: $500/week | $1000/month |â€¢**\n\n"
+        "▫ **Basic Plan**\n"
+        "**├ Accounts: 1**\n"
+        "**├ Intervals: 5 min**\n"
+        "**•|  Price: $40/week | $100/month |•**\n\n"
+        "**▫ Premium Plan**\n"
+        "**├ Accounts: 4**\n"
+        "**├ Intervals: 30 sec**\n"
+        "**•| Price: $250/week | $500/month |•**\n\n"
+        "**▫ Immortal Plan**\n"
+        "**├ Accounts: 10**\n"
+        "**├ Intervals: 60 sec**\n"
+        "**•| Price: $500/week | $1000/month |•**\n\n"
         "---\n\n"
         "> Select a Plan to Continue Via Below Buttons!\n\n"
         "For support, contact @Boostadvert."
@@ -55,12 +55,12 @@ def purchase(update: Update, context: CallbackContext) -> None:
     ]
     
     reply_markup = InlineKeyboardMarkup(keyboard)
-    update.message.reply_text(message, reply_markup=reply_markup, parse_mode="Markdown")
+    await update.message.reply_text(message, reply_markup=reply_markup, parse_mode="Markdown")
 
-# ðŸ”¹ Handle Button Clicks
-def button_handler(update: Update, context: CallbackContext) -> None:
+# 🔹 Handle Button Clicks (Async)
+async def button_handler(update: Update, context: CallbackContext):
     query = update.callback_query
-    query.answer()
+    await query.answer()
     
     user_id = query.from_user.id  # Get Telegram user ID
 
@@ -70,7 +70,7 @@ def button_handler(update: Update, context: CallbackContext) -> None:
             [InlineKeyboardButton("Weekly ($40)", callback_data='basic_weekly')],
             [InlineKeyboardButton("Back", callback_data='purchase')],
         ]
-        query.edit_message_text("Select duration:", reply_markup=InlineKeyboardMarkup(keyboard))
+        await query.edit_message_text("Select duration:", reply_markup=InlineKeyboardMarkup(keyboard))
 
     elif query.data == "premium_plan":
         keyboard = [
@@ -78,7 +78,7 @@ def button_handler(update: Update, context: CallbackContext) -> None:
             [InlineKeyboardButton("Weekly ($250)", callback_data='premium_weekly')],
             [InlineKeyboardButton("Back", callback_data='purchase')],
         ]
-        query.edit_message_text("Select duration:", reply_markup=InlineKeyboardMarkup(keyboard))
+        await query.edit_message_text("Select duration:", reply_markup=InlineKeyboardMarkup(keyboard))
 
     elif query.data == "immortal_plan":
         keyboard = [
@@ -86,7 +86,7 @@ def button_handler(update: Update, context: CallbackContext) -> None:
             [InlineKeyboardButton("Weekly ($500)", callback_data='immortal_weekly')],
             [InlineKeyboardButton("Back", callback_data='purchase')],
         ]
-        query.edit_message_text("Select duration:", reply_markup=InlineKeyboardMarkup(keyboard))
+        await query.edit_message_text("Select duration:", reply_markup=InlineKeyboardMarkup(keyboard))
 
     elif query.data in ["basic_monthly", "basic_weekly", "premium_monthly", "premium_weekly", "immortal_monthly", "immortal_weekly"]:
         plan_prices = {
@@ -96,7 +96,7 @@ def button_handler(update: Update, context: CallbackContext) -> None:
         }
         amount = plan_prices[query.data]
         pay_url = create_invoice(amount, "USDT", user_id)
-        query.edit_message_text(f"âœ… Click below to pay:\n{pay_url}")
+        await query.edit_message_text(f"✅ Click below to pay:\n{pay_url}")
 
     elif query.data == "purchase":
-        purchase(update, context)  # Go back to plan selection
+        await purchase(update, context)  # Go back to plan selection
