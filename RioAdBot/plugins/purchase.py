@@ -3,7 +3,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import CallbackContext
 
 # 🔹 Your CryptoBot API Key
-CRYPTOBOT_SECRET = "335393:AAZMPAfpnvAFGLApXm4BTKVbxNAuTVxbd9t"
+CRYPTOBOT_SECRET = "335607:AA3yJu1fkPWWbczmD6hw8uesXCiAwzIJWm1"
 
 # 🔹 Function to Create Invoice
 def create_invoice(amount, currency, user_id):
