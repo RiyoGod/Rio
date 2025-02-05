@@ -16,7 +16,7 @@ if not CRYPTOBOT_SECRET or not TELEGRAM_BOT_TOKEN:
 # Initialize Telegram bot
 bot = Bot(token=TELEGRAM_BOT_TOKEN)
 
-app = Flask(name)
+app = Flask(__name__)
 
 @app.route('/webhook', methods=['POST', 'GET'])
 def webhook():
