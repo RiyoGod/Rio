@@ -7,7 +7,7 @@ TELEGRAM_BOT_TOKEN = "7717505592:AAFprS-Sc-W34Sm2pfJ8srkPw1e91qbnoxY"
 CRYPTOBOT_SECRET = "335393:AAZMPAfpnvAFGLApXm4BTKVbxNAuTVxbd9t"
 
 # 🔹 Initialize Flask & Telegram Bot
-app = Flask(name)
+app = Flask(__name__)
 bot = Bot(token=TELEGRAM_BOT_TOKEN)
 
 # 🔹 Webhook Route (Must Allow POST Requests)
