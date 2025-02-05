@@ -5,7 +5,7 @@ import os
 from dotenv import load_dotenv
 from telegram.ext import Updater, CommandHandler
 from RioAdBot.plugins.welcome import start
-from RioAdBot.plugins.welcome import purchase
+from RioAdBot.plugins.purchase import purchase
 
 # Load environment variables from .env file
 load_dotenv()
