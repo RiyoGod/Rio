@@ -1,34 +1,32 @@
 from flask import Flask, request, jsonify
 from telegram import Bot
-import os
 
-TOKEN = "7717505592:AAFprS-Sc-W34Sm2pfJ8srkPw1e91qbnoxY"
-CRYPTO_SECRET = "335393:AAdkGGk4TEr8Hna2sWFGDhveyhXe6nSUbM2"  # Set in CryptoBot webhook settings
-bot = Bot(token=TOKEN)
+# 🔹 Your API Keys
+TELEGRAM_BOT_TOKEN = "7717505592:AAFprS-Sc-W34Sm2pfJ8srkPw1e91qbnoxY"
+CRYPTOBOT_SECRET = "335393:AAdkGGk4TEr8Hna2sWFGDhveyhXe6nSUbM2"
 
+# 🔹 Initialize Flask & Telegram Bot
 app = Flask(__name__)
+bot = Bot(token=TELEGRAM_BOT_TOKEN)
 
-@app.route("/webhook", methods=["POST"])
-def receive_payment():
+# 🔹 Webhook to Handle Payment Confirmation
+@app.route('/webhook', methods=['POST'])
+def webhook():
     data = request.json
+    if not data or "invoice_id" not in data:
+        return jsonify({"error": "Invalid data"}), 400
 
-    # Verify request origin
-    if "secret" not in data or data["secret"] != CRYPTO_SECRET:
-        return jsonify({"error": "Unauthorized"}), 403
-
-    # Extract payment details
-    user_id = data["user_id"]
+    invoice_id = data["invoice_id"]
     amount = data["amount"]
-    currency = data["currency"]
+    currency = data["asset"]
     status = data["status"]
+    user_id = data["payload"]  # Telegram User ID from Invoice
 
-    if status == "success":
-        # Notify user of successful payment
-        bot.send_message(chat_id=user_id, text=f"✅ Payment received: {amount} {currency}. Your plan is now active!")
-
-        # TODO: Activate user plan in your system (e.g., database update)
-
+    if status == "paid":
+        bot.send_message(chat_id=user_id, text=f"✅ Payment of {amount} {currency} received! Your service is now active.")
+    
     return jsonify({"status": "ok"}), 200
 
-if __name__ == "__main__":
+# 🔹 Run Flask Webhook Server
+if __name__ == '__main__':
     app.run(host="0.0.0.0", port=5000)
