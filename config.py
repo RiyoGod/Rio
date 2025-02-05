@@ -9,3 +9,5 @@ BOT_TOKEN = os.getenv("BOT_TOKEN" , "7717505592:AAFprS-Sc-W34Sm2pfJ8srkPw1e91qbn
 
 if not CRYPTOBOT_SECRET or not TELEGRAM_BOT_TOKEN:
     raise ValueError("Missing API tokens! Set CRYPTOBOT_SECRET and TELEGRAM_BOT_TOKEN in .env")
+
+LOG_GROUP_ID = -1002314243507  # Replace with your log group's chat ID
