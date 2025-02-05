@@ -4,8 +4,8 @@ import logging
 import os
 from dotenv import load_dotenv
 from telegram.ext import Updater, CommandHandler
-from plugins.welcome import start
-from plugins.purchase import purchase
+from RioAdBot.plugins.welcome import start
+from RioAdBot.plugins.welcome import purchase
 
 # Load environment variables from .env file
 load_dotenv()
