@@ -4,16 +4,17 @@ from io import BytesIO
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputFile
 from telegram.ext import CallbackContext
 
-# ✅ CryptoBot API Token
+# 🔹 Your CryptoBot API Key
 CRYPTOBOT_SECRET = "335607:AA3yJu1fkPWWbczmD6hw8uesXCiAwzIJWm1"
 
-# ✅ Function to Get a Payment Address
-def get_payment_address(asset):
+# 🔹 Get Payment Address
+def get_payment_address(asset="USDT"):
     url = "https://pay.crypt.bot/api/getMyDepositAddresses"
     headers = {"Crypto-Pay-API-Token": CRYPTOBOT_SECRET}
 
     response = requests.get(url, headers=headers).json()
-    
+    print("🔍 API Response:", response)  # ✅ Debugging output
+
     if response["ok"]:
         for item in response["result"]:
             if item["asset"] == asset:
@@ -21,18 +22,33 @@ def get_payment_address(asset):
     
     return None
 
-# ✅ Function to Generate QR Code
+# 🔹 Generate QR Code
 def generate_qr_code(payment_address):
     qr = qrcode.make(payment_address)
-    img_io = BytesIO()
-    qr.save(img_io, format="PNG")
-    img_io.seek(0)
-    return img_io
+    bio = BytesIO()
+    qr.save(bio, format="PNG")
+    bio.seek(0)
+    return bio
 
-# ✅ Purchase Command (Async)
+# 🔹 Check Payment Status
+def check_payment_status(asset="USDT", min_amount=10):
+    url = "https://pay.crypt.bot/api/getPayments"
+    headers = {"Crypto-Pay-API-Token": CRYPTOBOT_SECRET}
+
+    response = requests.get(url, headers=headers).json()
+    print("🔍 Payment Check Response:", response)  # ✅ Debugging output
+
+    if response["ok"]:
+        for payment in response["result"]:
+            if payment["asset"] == asset and payment["amount"] >= min_amount:
+                return payment["status"]  # "completed" or "pending"
+    
+    return "not_received"
+
+# 🔹 Purchase Command
 async def purchase_command(update: Update, context: CallbackContext):
     message = (
-        "**💰 Choose Your Payment Plan**\n\n"
+        "> **Choose Your Plan!!**\n\n"
         "▫ **Basic Plan**\n"
         "**├ Accounts: 1**\n"
         "**├ Intervals: 5 min**\n"
@@ -46,7 +62,7 @@ async def purchase_command(update: Update, context: CallbackContext):
         "**├ Intervals: 60 sec**\n"
         "**•| Price: $500/week | $1000/month |•**\n\n"
         "---\n\n"
-        "**Select a plan to proceed with payment.**\n"
+        "> Select a Plan to Continue Via Below Buttons!\n\n"
         "For support, contact @Boostadvert."
     )
 
@@ -57,9 +73,9 @@ async def purchase_command(update: Update, context: CallbackContext):
     ]
 
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text(message, reply_markup=reply_markup, parse_mode="Markdown")
+    await update.effective_chat.send_message(message, reply_markup=reply_markup, parse_mode="Markdown")
 
-# ✅ Handle Payment Requests
+# 🔹 Handle Button Clicks
 async def button_handler(update: Update, context: CallbackContext):
     query = update.callback_query
     await query.answer()
@@ -84,24 +100,37 @@ async def button_handler(update: Update, context: CallbackContext):
     elif any(plan in query.data for plan in plan_prices):
         plan, duration = query.data.rsplit("_", 1)
         amount = plan_prices[plan][duration]
-        
-        # ✅ Get the payment address
-        payment_address = get_payment_address("USDT")
-        
-        if payment_address:
-            # ✅ Generate QR code
-            qr_code = generate_qr_code(payment_address)
 
-            # ✅ Send QR Code + Payment Info
-            await query.message.reply_photo(
-                photo=InputFile(qr_code, filename="payment_qr.png"),
-                caption=f"💰 **Send {amount} USDT to this address:**\n\n`{payment_address}`\n\n"
-                        "Scan the QR code to pay easily.\n\n"
-                        "**After payment, send your transaction ID to @Boostadvert for confirmation.**",
-                parse_mode="Markdown"
+        payment_address = get_payment_address("USDT")
+        if payment_address:
+            qr_code = generate_qr_code(payment_address)
+            
+            message = (
+                f"💰 **Payment for {plan.replace('_', ' ').title()} ({duration.title()})**\n\n"
+                f"📥 **Send exactly** `{amount} USDT` to:\n"
+                f"`{payment_address}`\n\n"
+                "🔗 **Scan the QR Code to Pay:**"
             )
+
+            keyboard = [
+                [InlineKeyboardButton("🔄 Check Payment", callback_data=f"check_payment_{amount}")],
+                [InlineKeyboardButton("🔙 Back", callback_data="back_to_plans")],
+            ]
+
+            await query.message.reply_photo(photo=InputFile(qr_code, filename="payment_qr.png"), caption=message, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
         else:
             await query.edit_message_text("❌ Failed to generate a payment address. Try again later.")
+
+    elif query.data.startswith("check_payment"):
+        amount = int(query.data.split("_")[2])  # Get the expected amount
+        status = check_payment_status("USDT", amount)
+
+        if status == "completed":
+            await query.edit_message_text("✅ **Payment received successfully!**\nYour plan is now active.")
+        elif status == "pending":
+            await query.edit_message_text("⌛ **Payment is still pending.**\nPlease wait a moment and try again.")
+        else:
+            await query.edit_message_text("❌ **No payment detected yet.**\nMake sure you've sent the correct amount.")
 
     elif query.data == "back_to_plans":
         await purchase_command(update, context)
