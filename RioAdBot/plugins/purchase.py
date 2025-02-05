@@ -2,7 +2,7 @@ import requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import CallbackContext
 
-# 🔹 Your CryptoBot API Key
+# 🔹 Your CryptoBot API Key (Keep it secure)
 CRYPTOBOT_SECRET = "335607:AA3yJu1fkPWWbczmD6hw8uesXCiAwzIJWm1"
 
 # 🔹 Function to Create Invoice
@@ -24,11 +24,9 @@ def create_invoice(amount, currency, user_id):
     }
     
     response = requests.post(url, headers=headers, json=payload).json()
-    
-    if response["ok"]:
+    if response.get("ok"):
         return response["result"]["invoice_id"], response["result"]["pay_url"]
-    else:
-        return None, None
+    return None, None
 
 # 🔹 Function to Check Payment Status
 def check_payment(invoice_id):
@@ -36,30 +34,28 @@ def check_payment(invoice_id):
     headers = {"Crypto-Pay-API-Token": CRYPTOBOT_SECRET}
 
     response = requests.get(url, headers=headers).json()
-
-    if response["ok"]:
+    if response.get("ok"):
         for invoice in response["result"]["items"]:
             if invoice["invoice_id"] == invoice_id:
                 return invoice["status"]  # "paid", "active", "expired"
-    
     return "unknown"
 
 # 🔹 Purchase Command (Async)
 async def purchase(update: Update, context: CallbackContext):
     message = (
-        "> **Choose Your Plan!!**\n\n"
+        "**Choose Your Plan!!**\n\n"
         "▫ **Basic Plan**\n"
         "**├ Accounts: 1**\n"
         "**├ Intervals: 5 min**\n"
-        "**•|  Price: $40/week | $100/month |•**\n\n"
-        "**▫ Premium Plan**\n"
+        "**• Price: $40/week | $100/month •**\n\n"
+        "▫ **Premium Plan**\n"
         "**├ Accounts: 4**\n"
         "**├ Intervals: 30 sec**\n"
-        "**•| Price: $250/week | $500/month |•**\n\n"
-        "**▫ Immortal Plan**\n"
+        "**• Price: $250/week | $500/month •**\n\n"
+        "▫ **Immortal Plan**\n"
         "**├ Accounts: 10**\n"
         "**├ Intervals: 60 sec**\n"
-        "**•| Price: $500/week | $1000/month |•**\n\n"
+        "**• Price: $500/week | $1000/month •**\n\n"
         "---\n\n"
         "> Select a Plan to Continue Via Below Buttons!\n\n"
         "For support, contact @Boostadvert."
@@ -115,7 +111,7 @@ async def button_handler(update: Update, context: CallbackContext):
             await query.edit_message_text("❌ Failed to create invoice. Try again later.")
 
     elif query.data.startswith("check_"):
-        invoice_id = int(query.data.split("_")[1])
+        invoice_id = query.data.split("_")[1]
         status = check_payment(invoice_id)
 
         if status == "paid":
@@ -129,19 +125,19 @@ async def button_handler(update: Update, context: CallbackContext):
 
     elif query.data == "back_to_plans":
         message = (
-            "> **Choose Your Plan!!**\n\n"
+            "**Choose Your Plan!!**\n\n"
             "▫ **Basic Plan**\n"
             "**├ Accounts: 1**\n"
             "**├ Intervals: 5 min**\n"
-            "**•|  Price: $40/week | $100/month |•**\n\n"
-            "**▫ Premium Plan**\n"
+            "**• Price: $40/week | $100/month •**\n\n"
+            "▫ **Premium Plan**\n"
             "**├ Accounts: 4**\n"
             "**├ Intervals: 30 sec**\n"
-            "**•| Price: $250/week | $500/month |•**\n\n"
-            "**▫ Immortal Plan**\n"
+            "**• Price: $250/week | $500/month •**\n\n"
+            "▫ **Immortal Plan**\n"
             "**├ Accounts: 10**\n"
             "**├ Intervals: 60 sec**\n"
-            "**•| Price: $500/week | $1000/month |•**\n\n"
+            "**• Price: $500/week | $1000/month •**\n\n"
             "---\n\n"
             "> Select a Plan to Continue Via Below Buttons!\n\n"
             "For support, contact @Boostadvert."
