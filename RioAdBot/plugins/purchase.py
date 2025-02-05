@@ -24,7 +24,11 @@ def create_invoice(amount, currency, user_id):
     }
     
     response = requests.post(url, headers=headers, json=payload).json()
-    return response["result"]["invoice_id"], response["result"]["pay_url"] if response["ok"] else (None, None)
+    
+    if response.get("ok") and "result" in response:
+        return response["result"].get("invoice_id"), response["result"].get("pay_url")
+    
+    return None, None
 
 # 🔹 Function to Check Payment Status
 def check_payment(invoice_id):
@@ -32,10 +36,11 @@ def check_payment(invoice_id):
     headers = {"Crypto-Pay-API-Token": CRYPTOBOT_SECRET}
 
     response = requests.get(url, headers=headers).json()
-    if response["ok"]:
-        for invoice in response["result"]["items"]:
-            if invoice["invoice_id"] == invoice_id:
-                return invoice["status"]  # "paid", "active", "expired"
+
+    if response.get("ok") and "result" in response:
+        for invoice in response["result"].get("items", []):
+            if invoice.get("invoice_id") == invoice_id:
+                return invoice.get("status", "unknown")
     
     return "unknown"
 
