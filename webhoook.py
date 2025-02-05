@@ -1,32 +1,44 @@
+import os
 from flask import Flask, request, jsonify
+from dotenv import load_dotenv
 from telegram import Bot
 
-# 🔹 Your API Keys
-TELEGRAM_BOT_TOKEN = "7717505592:AAFprS-Sc-W34Sm2pfJ8srkPw1e91qbnoxY"
-CRYPTOBOT_SECRET = "335393:AAZMPAfpnvAFGLApXm4BTKVbxNAuTVxbd9t"
+# Load environment variables from .env file
+load_dotenv()
 
-# 🔹 Initialize Flask & Telegram Bot
-app = Flask(__name__)
+# Get API tokens from environment variables
+CRYPTOBOT_SECRET = os.getenv("CRYPTOBOT_SECRET")
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+
+if not CRYPTOBOT_SECRET or not TELEGRAM_BOT_TOKEN:
+    raise ValueError("Missing API tokens! Set CRYPTOBOT_SECRET and TELEGRAM_BOT_TOKEN in .env")
+
+# Initialize Telegram bot
 bot = Bot(token=TELEGRAM_BOT_TOKEN)
 
-# 🔹 Webhook to Handle Payment Confirmation
-@app.route('/webhook', methods=['POST'])
+app = Flask(name)
+
+@app.route('/webhook', methods=['POST', 'GET'])
 def webhook():
-    data = request.json
-    if not data or "invoice_id" not in data:
-        return jsonify({"error": "Invalid data"}), 400
-
-    invoice_id = data["invoice_id"]
-    amount = data["amount"]
-    currency = data["asset"]
-    status = data["status"]
-    user_id = data["payload"]  # Telegram User ID from Invoice
-
-    if status == "paid":
-        bot.send_message(chat_id=user_id, text=f"✅ Payment of {amount} {currency} received! Your service is now active.")
+    if request.method == 'GET':
+        return "Webhook is active!", 200  # Respond with success for GET requests
     
-    return jsonify({"status": "ok"}), 200
+    data = request.json  # Get JSON data from CryptoBot
+    print("Received Data:", data)  # Debugging: Print received data
+    
+    # Example: If payment is successful, notify the user
+    if data.get("status") == "paid":
+        user_id = data.get("payload")  # Store user ID in 'payload' field
+        amount = data.get("amount")
+        asset = data.get("asset")
+        invoice_id = data.get("invoice_id")
+        
+        message = f"✅ Payment Received!\n\n💰 Amount: {amount} {asset}\n🧾 Invoice ID: {invoice_id}"
+        
+        # Send a message to the user via Telegram bot
+        bot.send_message(chat_id=user_id, text=message)
 
-# 🔹 Run Flask Webhook Server
-if __name__ == '__main__':
+    return jsonify({"status": "ok"}), 200  # Respond with success
+
+if name == 'main':
     app.run(host="0.0.0.0", port=5000)
