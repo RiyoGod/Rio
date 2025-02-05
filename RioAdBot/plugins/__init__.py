@@ -1,4 +1,2 @@
 from .start import start
-from .purchase import purchase
-
-__all__ = ["start", "purchase"]
+# Do NOT import `purchase` at the module level to prevent circular imports.
