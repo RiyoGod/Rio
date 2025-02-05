@@ -1,6 +1,6 @@
 from telegram import Update
 from telegram.ext import Updater, CommandHandler, CallbackContext
-from RioAdBot.plugins.start import start
+from .plugins.start import start
 from RioAdBot.plugins.purchase import purchase
 
 def main():
