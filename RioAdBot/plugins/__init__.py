@@ -1,2 +1,2 @@
-from plugins.start import start
-from plugins.purchase import purchase, handle_payment
+from RioAdBot.plugins.start import start
+from RioAdBot.plugins.purchase import purchase
