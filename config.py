@@ -9,10 +9,11 @@ BOT_TOKEN = os.getenv("BOT_TOKEN" , "7717505592:AAFprS-Sc-W34Sm2pfJ8srkPw1e91qbn
 LOG_GROUP_ID = os.getenv("LOG_GROUP_ID")
 
 
+LOG_GROUP_ID = os.getenv("LOG_GROUP_ID" , -1002314243507)
 if LOG_GROUP_ID is None:
-    raise ValueError("LOG_GROUP_ID is missing in the .env file")
-
+    raise ValueError("LOG_GROUP_ID is missing in the .env file. Check your .env file!")
 LOG_GROUP_ID = int(LOG_GROUP_ID)  # ✅ Safe conversion
+#Safe conversion
 
 if not CRYPTOBOT_SECRET or not TELEGRAM_BOT_TOKEN:
     raise ValueError("Missing API tokens! Set CRYPTOBOT_SECRET and TELEGRAM_BOT_TOKEN in .env")
