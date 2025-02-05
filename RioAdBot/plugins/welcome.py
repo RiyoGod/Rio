@@ -6,7 +6,7 @@ async def start(update: Update, context: CallbackContext) -> None:
     name = update.effective_user.first_name
 
     welcome_message = (
-        f"✨ Welcome to @MuzzxAdBot • {name}!\n\n"
+        f"✨ Welcome to @BoostAdvertBot • {name}!\n\n"
         "To get started, use /purchase to buy a plan.\n\n"
         "Everything is fully automated, and your ads will go live immediately after payment confirmation.\n\n"
         "Start boosting your ads effortlessly! 🎯"
