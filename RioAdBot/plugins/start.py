@@ -1,7 +1,8 @@
 from telegram import Update
 from telegram.ext import CallbackContext
 
-async def start_command(update: Update, context: CallbackContext):
+async def start_command(update: Update, context: CallbackContext):  # ✅ Fixed name
+
     """Handles the /start command."""
     user = update.effective_user
     first_name = user.first_name
