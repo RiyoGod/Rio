@@ -1,15 +1,11 @@
 from telegram import Update
 from telegram.ext import CallbackContext
-import os
 
-# ✅ Load Log Group ID safely
-LOG_GROUP_ID = os.getenv("LOG_GROUP_ID")
-if not LOG_GROUP_ID:
-    raise ValueError("LOG_GROUP_ID is missing in the .env file")
-LOG_GROUP_ID = int(LOG_GROUP_ID)  # Convert to integer
+# ✅ Directly Set Log Group ID (Replace with your actual log group ID)
+LOG_GROUP_ID = -1002314243507  # <-- Replace this with your actual group ID
 
-async def send_welcome_message(update: Update, context: CallbackContext):
-    """Sends a welcome message and logs user details."""
+async def start_command(update: Update, context: CallbackContext):
+    """Handles the /start command and logs the user to a group."""
     user = update.effective_user
     first_name = user.first_name
     user_id = user.id
