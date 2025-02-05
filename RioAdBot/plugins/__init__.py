@@ -1,2 +1,3 @@
 from RioAdBot.plugins.start import start
-import RioAdBot.plugins.purchase
+from RioAdBot.plugins.purchase import purchase
+
