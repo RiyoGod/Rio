@@ -1,4 +1,10 @@
 from .start import start
-from .purchase import purchase, button_handler
+from .purchase import purchase
 
-__all__ = ["start", "purchase", "button_handler"]
+def get_start():
+    return start
+
+def get_purchase():
+    return purchase
+
+__all__ = ["get_start", "get_purchase"]
