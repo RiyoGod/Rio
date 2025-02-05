@@ -1,55 +1,38 @@
 import requests
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+import qrcode
+from io import BytesIO
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputFile
 from telegram.ext import CallbackContext
 
-# 🔹 CryptoBot API Key
+# ✅ CryptoBot API Token
 CRYPTOBOT_SECRET = "335607:AA3yJu1fkPWWbczmD6hw8uesXCiAwzIJWm1"
 
-# 🔹 Function to Create Invoice
-def create_invoice(amount, currency, user_id):
-    url = "https://pay.crypt.bot/api/createInvoice"
-    headers = {"Crypto-Pay-API-Token": CRYPTOBOT_SECRET, "Content-Type": "application/json"}
-
-    payload = {
-        "asset": currency,
-        "amount": amount,
-        "description": "Your Plan Purchase",
-        "hidden_message": "Thanks for your payment!",
-        "paid_btn_name": "viewItem",
-        "paid_btn_url": "https://yourwebsite.com/order_status",
-        "payload": str(user_id),
-        "allow_comments": False,
-        "allow_anonymous": False,
-        "expires_in": 3600
-    }
-
-    response = requests.post(url, headers=headers, json=payload).json()
-
-    if response["ok"]:
-        return response["result"]["invoice_id"], response["result"]["pay_url"]
-    else:
-        return None, None
-
-# 🔹 Function to Check Payment Status
-def check_payment(invoice_id):
-    url = "https://pay.crypt.bot/api/getInvoices"
+# ✅ Function to Get a Payment Address
+def get_payment_address(asset):
+    url = "https://pay.crypt.bot/api/getMyDepositAddresses"
     headers = {"Crypto-Pay-API-Token": CRYPTOBOT_SECRET}
 
     response = requests.get(url, headers=headers).json()
-
+    
     if response["ok"]:
-        for invoice in response["result"]["items"]:
-            if invoice["invoice_id"] == invoice_id:
-                return invoice["status"]  # "paid", "active", "expired"
+        for item in response["result"]:
+            if item["asset"] == asset:
+                return item["address"]
+    
+    return None
 
-    return "unknown"
+# ✅ Function to Generate QR Code
+def generate_qr_code(payment_address):
+    qr = qrcode.make(payment_address)
+    img_io = BytesIO()
+    qr.save(img_io, format="PNG")
+    img_io.seek(0)
+    return img_io
 
-# 🔹 Purchase Command (Async)
+# ✅ Purchase Command (Async)
 async def purchase_command(update: Update, context: CallbackContext):
-    print("✅ /purchase command triggered!")  # ✅ Debugging log
-
     message = (
-        "> **Choose Your Plan!!**\n\n"
+        "**💰 Choose Your Payment Plan**\n\n"
         "▫ **Basic Plan**\n"
         "**├ Accounts: 1**\n"
         "**├ Intervals: 5 min**\n"
@@ -63,7 +46,7 @@ async def purchase_command(update: Update, context: CallbackContext):
         "**├ Intervals: 60 sec**\n"
         "**•| Price: $500/week | $1000/month |•**\n\n"
         "---\n\n"
-        "> Select a Plan to Continue Via Below Buttons!\n\n"
+        "**Select a plan to proceed with payment.**\n"
         "For support, contact @Boostadvert."
     )
 
@@ -76,7 +59,7 @@ async def purchase_command(update: Update, context: CallbackContext):
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(message, reply_markup=reply_markup, parse_mode="Markdown")
 
-# 🔹 Handle Button Clicks (Async)
+# ✅ Handle Payment Requests
 async def button_handler(update: Update, context: CallbackContext):
     query = update.callback_query
     await query.answer()
@@ -88,8 +71,6 @@ async def button_handler(update: Update, context: CallbackContext):
         "premium_plan": {"weekly": 250, "monthly": 500},
         "immortal_plan": {"weekly": 500, "monthly": 1000},
     }
-
-    print(f"Button clicked: {query.data}")  # ✅ Debugging log
 
     if query.data in plan_prices:
         selected_plan = query.data
@@ -103,33 +84,24 @@ async def button_handler(update: Update, context: CallbackContext):
     elif any(plan in query.data for plan in plan_prices):
         plan, duration = query.data.rsplit("_", 1)
         amount = plan_prices[plan][duration]
-        invoice_id, pay_url = create_invoice(amount, "USDT", user_id)
+        
+        # ✅ Get the payment address
+        payment_address = get_payment_address("USDT")
+        
+        if payment_address:
+            # ✅ Generate QR code
+            qr_code = generate_qr_code(payment_address)
 
-        if pay_url:
-            keyboard = [
-                [InlineKeyboardButton("✅ Pay Now", url=pay_url)],
-                [InlineKeyboardButton("🔄 Check Payment", callback_data=f"check_{invoice_id}")],
-                [InlineKeyboardButton("🔙 Back", callback_data="back_to_plans")],
-            ]
-            await query.edit_message_text(f"💰 **Payment for {plan.replace('_', ' ').title()} ({duration.title()})**\n\n"
-                                          f"Click **'Pay Now'** to complete the payment.",
-                                          reply_markup=InlineKeyboardMarkup(keyboard),
-                                          parse_mode="Markdown")
+            # ✅ Send QR Code + Payment Info
+            await query.message.reply_photo(
+                photo=InputFile(qr_code, filename="payment_qr.png"),
+                caption=f"💰 **Send {amount} USDT to this address:**\n\n`{payment_address}`\n\n"
+                        "Scan the QR code to pay easily.\n\n"
+                        "**After payment, send your transaction ID to @Boostadvert for confirmation.**",
+                parse_mode="Markdown"
+            )
         else:
-            await query.edit_message_text("❌ Failed to create invoice. Try again later.")
-
-    elif query.data.startswith("check_"):
-        invoice_id = int(query.data.split("_")[1])
-        status = check_payment(invoice_id)
-
-        if status == "paid":
-            await query.edit_message_text("✅ **Payment received successfully!**\nYour plan is now active.")
-        elif status == "active":
-            await query.edit_message_text("⌛ **Payment is still pending.**\nPlease wait a moment and try again.")
-        elif status == "expired":
-            await query.edit_message_text("❌ **Invoice expired!**\nPlease generate a new invoice.")
-        else:
-            await query.edit_message_text("⚠️ **Could not check payment status.** Try again later.")
+            await query.edit_message_text("❌ Failed to generate a payment address. Try again later.")
 
     elif query.data == "back_to_plans":
-        await purchase_command(update, context)  # Call purchase command again to show plans
+        await purchase_command(update, context)
