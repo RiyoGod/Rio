@@ -4,7 +4,7 @@ from telegram import Bot
 
 # 🔹 Your API Keys
 TELEGRAM_BOT_TOKEN = "7717505592:AAFprS-Sc-W34Sm2pfJ8srkPw1e91qbnoxY"
-CRYPTOBOT_SECRET = "335393:AAdkGGk4TEr8Hna2sWFGDhveyhXe6nSUbM2"
+CRYPTOBOT_SECRET = "335393:AAZMPAfpnvAFGLApXm4BTKVbxNAuTVxbd9t"
 
 # 🔹 Initialize Flask & Telegram Bot
 app = Flask(name)
