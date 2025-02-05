@@ -2,8 +2,7 @@ import logging
 import os
 from dotenv import load_dotenv
 from telegram.ext import Application, CommandHandler
-from RioAdBot.plugins.welcome import start
-from RioAdBot.plugins.purchase import purchase
+from RioAdBot.plugins.welcome import start  # Keep this import
 
 # Load environment variables from .env file
 load_dotenv()
@@ -25,6 +24,7 @@ async def start_command(update, context):
 
 async def purchase_command(update, context):
     """Handles the /purchase command."""
+    from RioAdBot.plugins.purchase import purchase  # ✅ Move import inside function
     await purchase(update, context)
 
 def main():
