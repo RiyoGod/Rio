@@ -3,7 +3,7 @@ from telegram import Bot
 import os
 
 TOKEN = "7717505592:AAFprS-Sc-W34Sm2pfJ8srkPw1e91qbnoxY"
-CRYPTO_SECRET = "YOUR_CRYPTOBOT_SECRET"  # Set in CryptoBot webhook settings
+CRYPTO_SECRET = "335393:AAdkGGk4TEr8Hna2sWFGDhveyhXe6nSUbM2"  # Set in CryptoBot webhook settings
 bot = Bot(token=TOKEN)
 
 app = Flask(__name__)
