@@ -17,8 +17,9 @@ logger = logging.getLogger(__name__)
 
 async def purchase_command(update, context):
     """Handles the /purchase command."""
-    from RioAdBot.plugins.purchase import show_plans  # Lazy import inside function
+    from RioAdBot.plugins.purchase import show_plans  # Lazy import
     await show_plans(update, context)
+
 
 
 def main():
