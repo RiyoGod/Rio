@@ -1,2 +1,2 @@
-from .welcome import start
-from .purchase import purchase
+from plugins.start import start
+from plugins.purchase import purchase, handle_payment
