@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler
 from RioAdBot.plugins.welcome import send_welcome_message  # ✅ Direct Import
 from RioAdBot.plugins.purchase import purchase_command, button_handler
+from RioAdBot.plugins.start import start_command  # ✅ Correct Import
 
 # ✅ Load environment variables
 load_dotenv()
