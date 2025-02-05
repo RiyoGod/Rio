@@ -1,7 +1,4 @@
-def get_start():
-    from RioAdBot.plugins.start import start
-    return start
+from .start import start
+from .purchase import purchase, button_handler
 
-def get_purchase():
-    from RioAdBot.plugins.purchase import purchase
-    return purchase
+__all__ = ["start", "purchase", "button_handler"]
