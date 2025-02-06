@@ -34,7 +34,7 @@ def main():
     app.add_handler(CommandHandler("purchase", purchase_command))  # ✅ Register purchase command
     app.add_handler(CallbackQueryHandler(button_handler))  # ✅ Register button handler
 
-    logger.info("Bot is running...")
+    logger.info("ʙᴏᴛ sᴛᴀʀᴛᴇᴅ 🥰.")
     app.run_polling()
 
 # ✅ Run the bot
