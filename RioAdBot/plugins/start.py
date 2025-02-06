@@ -7,20 +7,17 @@ async def start_command(update: Update, context: CallbackContext):
     user = update.effective_user
     first_name = user.first_name
 
-    # ✅ Short & Impactful Welcome Message
+    # ✅ Short & Fully Bold Welcome Message
     welcome_message = (
-        f"◆ **Hello, {first_name}!** ◆\n"
-        "━━━━━━━━━━━━━━━━━━━━━\n"
-        "**Welcome to @BoostAdvertBot!**\n"
-        "Your premium advertising partner.\n\n"
-        "**➜ What We Offer:**\n"
-        "◆ Exclusive Ads\n"
-        "◆ Affordable Plans\n"
-        "◆ Secure Crypto Payments\n\n"
-        "**➜ Get Started:**\n"
-        "◆ Use **/purchase** to explore plans.\n"
-        "◆ Need help? Contact **@Boostadvert**.\n"
-        "━━━━━━━━━━━━━━━━━━━━━"
+        f"**Hello, {first_name}!**\n"
+        "**Welcome to @BoostAdvertBot – the ultimate ad automation tool.**\n\n"
+        "**Why Choose Us?**\n"
+        "**- Automated & targeted advertising**\n"
+        "**- Affordable promotion plans**\n"
+        "**- Secure crypto payments**\n\n"
+        "**Get Started:**\n"
+        "**Use /purchase to buy ad plans.**\n"
+        "**Need help? Contact @Boostadvert.**"
     )
 
     await update.message.reply_text(welcome_message, parse_mode="Markdown")
