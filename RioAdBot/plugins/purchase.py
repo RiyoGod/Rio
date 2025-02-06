@@ -68,8 +68,7 @@ async def show_plan_selection(update):
         "├ Intervals: 60 sec\n"
         "└ Price: $500/week | $1000/month\n\n"
         "━━━━━━━━━━━━━━━━━━━━━\n"
-        "➜ Select a Plan Below!\n\n"
-        "For support, contact @Boostadvert."
+        "➜ Select a Plan Below!"
     )
 
     keyboard = [
@@ -78,11 +77,12 @@ async def show_plan_selection(update):
         [InlineKeyboardButton("◆ Immortal Plan", callback_data="immortal_plan")],
     ]
 
-    await update.message.reply_text(message, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+    return message, InlineKeyboardMarkup(keyboard)
 
 # 🔹 Purchase Command
 async def purchase_command(update: Update, context: CallbackContext):
-    await show_plan_selection(update)
+    message, keyboard = await show_plan_selection(update)
+    await update.message.reply_text(message, reply_markup=keyboard, parse_mode="Markdown")
 
 # 🔹 Handle Button Clicks
 async def button_handler(update: Update, context: CallbackContext):
@@ -118,7 +118,7 @@ async def button_handler(update: Update, context: CallbackContext):
                     keyboard = [
                         [InlineKeyboardButton("✔ Pay Now", url=pay_url)],
                         [InlineKeyboardButton("🔄 Check Payment", callback_data=f"check_{invoice_id}")],
-                        [InlineKeyboardButton("✖ Cancel Payment", callback_data=f"cancel_{invoice_id}")],
+                        [InlineKeyboardButton("✖ Cancel Payment", callback_data="cancel_payment")],
                         [InlineKeyboardButton("↩ Back", callback_data=f"back_to_{plan}")],
                     ]
                     await safe_edit_message(
@@ -147,8 +147,9 @@ async def button_handler(update: Update, context: CallbackContext):
         else:
             await safe_edit_message(query, "⚠ **Could not check payment status.** Try again later.")
 
-    elif query.data.startswith("cancel_"):  # ✖ Cancel Payment Button
-        await safe_edit_message(query, "❌ **Payment cancelled.**\nYou can choose a plan again.")
+    elif query.data == "cancel_payment":  # ✖ Cancel Payment Button
+        message, keyboard = await show_plan_selection(update)
+        await safe_edit_message(query, "❌ **Payment cancelled.**\nYou can choose a plan again.", keyboard)
 
     elif query.data.startswith("back_to_"):  # 🔙 Handle Back Button
         plan = query.data.replace("back_to_", "")
@@ -162,6 +163,7 @@ async def button_handler(update: Update, context: CallbackContext):
             await safe_edit_message(query, "➜ Select a duration:", InlineKeyboardMarkup(keyboard))
 
         elif query.data == "back_to_plans":  # Going back to plan selection
-            await show_plan_selection(update)
+            message, keyboard = await show_plan_selection(update)
+            await safe_edit_message(query, message, keyboard)
         else:
             await safe_edit_message(query, "⚠ Invalid selection. Try again.")
