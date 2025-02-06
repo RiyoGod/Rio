@@ -44,8 +44,15 @@ def check_payment(invoice_id):
 
     return "unknown"
 
+# 🔹 Safe Message Editing Function (Fixes Telegram Edit Error)
+async def safe_edit_message(query, text, reply_markup=None):
+    try:
+        await query.edit_message_text(text, reply_markup=reply_markup, parse_mode="Markdown")
+    except:
+        await query.message.reply_text(text, reply_markup=reply_markup, parse_mode="Markdown")
+
 # 🔹 Function to Show Plan Selection
-async def show_plan_selection(query):
+async def show_plan_selection(update):
     message = (
         "➜ **Choose Your Plan!**\n\n"
         "◆ **Basic Plan**\n"
@@ -71,7 +78,7 @@ async def show_plan_selection(query):
         [InlineKeyboardButton("◆ Immortal Plan", callback_data="immortal_plan")],
     ]
 
-    await query.message.edit_text(message, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+    await update.message.reply_text(message, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
 
 # 🔹 Purchase Command (Async)
 async def purchase_command(update: Update, context: CallbackContext):
@@ -100,7 +107,7 @@ async def button_handler(update: Update, context: CallbackContext):
             [InlineKeyboardButton(f"● Weekly (${plan_prices[selected_plan]['weekly']})", callback_data=f"{selected_plan}_weekly")],
             [InlineKeyboardButton("↩ Back", callback_data="back_to_plans")],
         ]
-        await query.message.edit_text("➜ Select a duration:", reply_markup=InlineKeyboardMarkup(keyboard))
+        await safe_edit_message(query, "➜ Select a duration:", InlineKeyboardMarkup(keyboard))
 
     elif any(plan in query.data for plan in plan_prices):
         plan, duration = query.data.rsplit("_", 1)
@@ -114,30 +121,30 @@ async def button_handler(update: Update, context: CallbackContext):
                 [InlineKeyboardButton("✖ Cancel Payment", callback_data="cancel_payment")],
                 [InlineKeyboardButton("↩ Back", callback_data="back_to_plans")],
             ]
-            await query.message.edit_text(
+            await safe_edit_message(
+                query,
                 f"💵 **Payment for {plan.replace('_', ' ').title()} ({duration.title()})**\n\n"
                 f"Click **'Pay Now'** to complete the payment.",
-                reply_markup=InlineKeyboardMarkup(keyboard),
-                parse_mode="Markdown"
+                InlineKeyboardMarkup(keyboard)
             )
         else:
-            await query.message.edit_text("❌ Failed to create invoice. Try again later.")
+            await safe_edit_message(query, "❌ Failed to create invoice. Try again later.")
 
     elif query.data.startswith("check_"):
         invoice_id = int(query.data.split("_")[1])
         status = check_payment(invoice_id)
 
         if status == "paid":
-            await query.message.edit_text("✔ **Payment received successfully!**\nYour plan is now active.")
+            await safe_edit_message(query, "✔ **Payment received successfully!**\nYour plan is now active.")
         elif status == "active":
-            await query.message.edit_text("⌛ **Payment is still pending.**\nPlease wait a moment and try again.")
+            await safe_edit_message(query, "⌛ **Payment is still pending.**\nPlease wait a moment and try again.")
         elif status == "expired":
-            await query.message.edit_text("❌ **Invoice expired!**\nPlease generate a new invoice.")
+            await safe_edit_message(query, "❌ **Invoice expired!**\nPlease generate a new invoice.")
         else:
-            await query.message.edit_text("⚠ **Could not check payment status.** Try again later.")
+            await safe_edit_message(query, "⚠ **Could not check payment status.** Try again later.")
 
     elif query.data == "back_to_plans":
-        await show_plan_selection(query)  # Fix for the back button
+        await show_plan_selection(query)
 
     elif query.data == "cancel_payment":
         await show_plan_selection(query)  # Cancel payment returns to plan selection
