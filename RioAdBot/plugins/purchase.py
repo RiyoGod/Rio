@@ -2,50 +2,52 @@ import requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import CallbackContext
 
-# ✅ CoinsPayment API Key
-COINSPAYMENT_API_KEY = "d6b9e7fe7a7f302290b341db24569e41750915bd01f53d673e4bde432933c820"
+# 🔹 CryptoBot API Key
+CRYPTOBOT_SECRET = "335607:AA3yJu1fkPWWbczmD6hw8uesXCiAwzIJWm1"
 
-# ✅ Generate Crypto Payment Address
-def generate_payment_address(amount, currency, order_id):
-    url = "https://coinspayment.io/api/v1/create-payment"
-    headers = {
-        "Authorization": f"Bearer {COINSPAYMENT_API_KEY}",
-        "Content-Type": "application/json"
-    }
+# 🔹 Function to Create Invoice
+def create_invoice(amount, currency, user_id):
+    url = "https://pay.crypt.bot/api/createInvoice"
+    headers = {"Crypto-Pay-API-Token": CRYPTOBOT_SECRET, "Content-Type": "application/json"}
+
     payload = {
+        "asset": currency,
         "amount": amount,
-        "currency": currency,
-        "order_id": str(order_id),
-        "description": "Plan Purchase",
-        "callback_url": "https://your-callback-url.com"  # Replace with your callback URL
+        "description": "Your Plan Purchase",
+        "hidden_message": "Thanks for your payment!",
+        "paid_btn_name": "viewItem",
+        "paid_btn_url": "https://yourwebsite.com/order_status",
+        "payload": str(user_id),
+        "allow_comments": False,
+        "allow_anonymous": False,
+        "expires_in": 3600
     }
-    
-    response = requests.post(url, json=payload, headers=headers).json()
-    print("🔍 API Response:", response)  # Debugging Log
 
-    if response.get("status") == "success":
-        return response["data"]["address"], response["data"]["currency"], response["data"]["payment_id"]
+    response = requests.post(url, headers=headers, json=payload).json()
+
+    if response["ok"]:
+        return response["result"]["invoice_id"], response["result"]["pay_url"]
     else:
-        return None, None, None
+        return None, None
 
-# ✅ Check Payment Status
-def check_payment(payment_id):
-    url = f"https://coinspayment.io/api/v1/payment-status/{payment_id}"
-    headers = {"Authorization": f"Bearer {COINSPAYMENT_API_KEY}"}
-    
+# 🔹 Function to Check Payment Status
+def check_payment(invoice_id):
+    url = "https://pay.crypt.bot/api/getInvoices"
+    headers = {"Crypto-Pay-API-Token": CRYPTOBOT_SECRET}
+
     response = requests.get(url, headers=headers).json()
 
-    if response.get("status") == "completed":
-        return "paid"
-    elif response.get("status") == "pending":
-        return "pending"
-    elif response.get("status") == "failed":
-        return "failed"
-    else:
-        return "unknown"
+    if response["ok"]:
+        for invoice in response["result"]["items"]:
+            if invoice["invoice_id"] == invoice_id:
+                return invoice["status"]  # "paid", "active", "expired"
 
-# ✅ /purchase Command
+    return "unknown"
+
+# 🔹 Purchase Command (Async)
 async def purchase_command(update: Update, context: CallbackContext):
+    print("✅ /purchase command triggered!")  # ✅ Debugging log
+
     message = (
         "> **Choose Your Plan!!**\n\n"
         "▫ **Basic Plan**\n"
@@ -74,76 +76,60 @@ async def purchase_command(update: Update, context: CallbackContext):
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(message, reply_markup=reply_markup, parse_mode="Markdown")
 
-# ✅ Button Handler
+# 🔹 Handle Button Clicks (Async)
 async def button_handler(update: Update, context: CallbackContext):
     query = update.callback_query
     await query.answer()
-
+    
     user_id = query.from_user.id  
-    selected_plan = query.data
 
     plan_prices = {
-        "basic_plan_weekly": 40,
-        "basic_plan_monthly": 100,
-        "premium_plan_weekly": 250,
-        "premium_plan_monthly": 500,
-        "immortal_plan_weekly": 500,
-        "immortal_plan_monthly": 1000
+        "basic_plan": {"weekly": 40, "monthly": 100},
+        "premium_plan": {"weekly": 250, "monthly": 500},
+        "immortal_plan": {"weekly": 500, "monthly": 1000},
     }
 
-    # ✅ Handle Plan Selection
-    if selected_plan in ["basic_plan", "premium_plan", "immortal_plan"]:
+    print(f"Button clicked: {query.data}")  # ✅ Debugging log
+
+    if query.data in plan_prices:
+        selected_plan = query.data
         keyboard = [
-            [InlineKeyboardButton("Monthly", callback_data=f"{selected_plan}_monthly")],
-            [InlineKeyboardButton("Weekly", callback_data=f"{selected_plan}_weekly")],
+            [InlineKeyboardButton(f"Monthly (${plan_prices[selected_plan]['monthly']})", callback_data=f"{selected_plan}_monthly")],
+            [InlineKeyboardButton(f"Weekly (${plan_prices[selected_plan]['weekly']})", callback_data=f"{selected_plan}_weekly")],
             [InlineKeyboardButton("🔙 Back", callback_data="back_to_plans")],
         ]
         await query.edit_message_text("Select duration:", reply_markup=InlineKeyboardMarkup(keyboard))
-    
-    # ✅ Handle Payment Address Generation
-    elif selected_plan in plan_prices:
-        amount = plan_prices[selected_plan]
-        currency = "USDT"  # Default currency (Can be changed)
-        
-        pay_address, pay_currency, payment_id = generate_payment_address(amount, currency, user_id)
 
-        if pay_address:
-            qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=200x200&data={pay_address}"
-            
+    elif any(plan in query.data for plan in plan_prices):
+        plan, duration = query.data.rsplit("_", 1)
+        amount = plan_prices[plan][duration]
+        invoice_id, pay_url = create_invoice(amount, "USDT", user_id)
+
+        if pay_url:
             keyboard = [
-                [InlineKeyboardButton("🔗 Copy Address", callback_data="copy_address")],
-                [InlineKeyboardButton("🔄 Check Payment", callback_data=f"check_{payment_id}")],
+                [InlineKeyboardButton("✅ Pay Now", url=pay_url)],
+                [InlineKeyboardButton("🔄 Check Payment", callback_data=f"check_{invoice_id}")],
                 [InlineKeyboardButton("🔙 Back", callback_data="back_to_plans")],
             ]
-            
-            await query.edit_message_text(
-                f"💰 **Payment for {selected_plan.replace('_', ' ').title()}**\n"
-                f"💵 **Amount:** {amount} USD\n"
-                f"💳 **Currency:** {pay_currency}\n"
-                f"🏦 **Address:** `{pay_address}`\n\n"
-                f"📌 *Scan QR Code Below:*",
-                reply_markup=InlineKeyboardMarkup(keyboard),
-                parse_mode="Markdown"
-            )
-            await query.message.reply_photo(photo=qr_url)
-
+            await query.edit_message_text(f"💰 **Payment for {plan.replace('_', ' ').title()} ({duration.title()})**\n\n"
+                                          f"Click **'Pay Now'** to complete the payment.",
+                                          reply_markup=InlineKeyboardMarkup(keyboard),
+                                          parse_mode="Markdown")
         else:
-            await query.edit_message_text("❌ Failed to generate a payment address. Try again later.")
+            await query.edit_message_text("❌ Failed to create invoice. Try again later.")
 
-    # ✅ Check Payment Status
     elif query.data.startswith("check_"):
-        payment_id = query.data.split("_")[1]
-        status = check_payment(payment_id)
+        invoice_id = int(query.data.split("_")[1])
+        status = check_payment(invoice_id)
 
         if status == "paid":
             await query.edit_message_text("✅ **Payment received successfully!**\nYour plan is now active.")
-        elif status == "pending":
-            await query.edit_message_text("⌛ **Payment is still pending.**\nPlease wait and try again.")
-        elif status == "failed":
-            await query.edit_message_text("❌ **Payment failed.**\nPlease generate a new invoice.")
+        elif status == "active":
+            await query.edit_message_text("⌛ **Payment is still pending.**\nPlease wait a moment and try again.")
+        elif status == "expired":
+            await query.edit_message_text("❌ **Invoice expired!**\nPlease generate a new invoice.")
         else:
             await query.edit_message_text("⚠️ **Could not check payment status.** Try again later.")
 
-    # ✅ Back to Plans
     elif query.data == "back_to_plans":
-        await purchase_command(update, context)  # Call purchase command again
+        await purchase_command(update, context)  # Call purchase command again to show plans
