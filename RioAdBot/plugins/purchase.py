@@ -109,26 +109,33 @@ async def button_handler(update: Update, context: CallbackContext):
         ]
         await safe_edit_message(query, "➜ Select a duration:", InlineKeyboardMarkup(keyboard))
 
-    elif any(plan in query.data for plan in plan_prices):
-        plan, duration = query.data.rsplit("_", 1)
-        amount = plan_prices[plan][duration]
-        invoice_id, pay_url = create_invoice(amount, "USDT", user_id)
+    elif "_" in query.data:
+        parts = query.data.split("_")
 
-        if pay_url:
-            keyboard = [
-                [InlineKeyboardButton("✔ Pay Now", url=pay_url)],
-                [InlineKeyboardButton("🔄 Check Payment", callback_data=f"check_{invoice_id}")],
-                [InlineKeyboardButton("✖ Cancel Payment", callback_data=f"back_to_{plan}")],
-                [InlineKeyboardButton("↩ Back", callback_data=f"back_to_{plan}")],
-            ]
-            await safe_edit_message(
-                query,
-                f"💵 **Payment for {plan.replace('_', ' ').title()} ({duration.title()})**\n\n"
-                f"Click **'Pay Now'** to complete the payment.",
-                InlineKeyboardMarkup(keyboard)
-            )
+        if len(parts) == 2 and parts[0] in plan_prices:  # Check if it's a valid plan selection
+            plan, duration = parts
+            amount = plan_prices[plan].get(duration)  # Avoid KeyError
+            if amount:
+                invoice_id, pay_url = create_invoice(amount, "USDT", user_id)
+                if pay_url:
+                    keyboard = [
+                        [InlineKeyboardButton("✔ Pay Now", url=pay_url)],
+                        [InlineKeyboardButton("🔄 Check Payment", callback_data=f"check_{invoice_id}")],
+                        [InlineKeyboardButton("✖ Cancel Payment", callback_data=f"back_to_{plan}")],
+                        [InlineKeyboardButton("↩ Back", callback_data=f"back_to_{plan}")],
+                    ]
+                    await safe_edit_message(
+                        query,
+                        f"💵 **Payment for {plan.replace('_', ' ').title()} ({duration.title()})**\n\n"
+                        f"Click **'Pay Now'** to complete the payment.",
+                        InlineKeyboardMarkup(keyboard)
+                    )
+                else:
+                    await safe_edit_message(query, "❌ Failed to create invoice. Try again later.")
+            else:
+                await safe_edit_message(query, "⚠ Invalid selection. Try again.")
         else:
-            await safe_edit_message(query, "❌ Failed to create invoice. Try again later.")
+            await safe_edit_message(query, "⚠ Invalid action. Try again.")
 
     elif query.data.startswith("check_"):
         invoice_id = int(query.data.split("_")[1])
