@@ -44,7 +44,7 @@ def check_payment(invoice_id):
 
     return "unknown"
 
-# 🔹 Safe Message Editing Function
+# 🔹 Safe Message Editing Function (Prevents Telegram "Message can't be edited" Errors)
 async def safe_edit_message(query, text, reply_markup=None):
     try:
         await query.edit_message_text(text, reply_markup=reply_markup, parse_mode="Markdown")
@@ -109,11 +109,11 @@ async def button_handler(update: Update, context: CallbackContext):
         ]
         await safe_edit_message(query, "➜ Select a duration:", InlineKeyboardMarkup(keyboard))
 
-    elif any(plan in query.data for plan in plan_prices):  # Handle weekly/monthly selection
-        parts = query.data.rsplit("_", 1)  
+    elif "_" in query.data and not query.data.startswith("check_"):  # Handle weekly/monthly selection
+        parts = query.data.rsplit("_", 1)
         if len(parts) == 2:
             plan, duration = parts
-            if plan in plan_prices and duration in ["weekly", "monthly"]:  
+            if plan in plan_prices and duration in ["weekly", "monthly"]:
                 amount = plan_prices[plan][duration]
                 invoice_id, pay_url = create_invoice(amount, "USDT", user_id)
 
@@ -137,7 +137,7 @@ async def button_handler(update: Update, context: CallbackContext):
         else:
             await safe_edit_message(query, "⚠ Invalid action. Try again.")
 
-    elif query.data.startswith("check_"):  # Check payment status
+    elif query.data.startswith("check_"):  # ✅ Correctly Handles Payment Status Check
         invoice_id = int(query.data.split("_")[1])
         status = check_payment(invoice_id)
 
@@ -150,7 +150,7 @@ async def button_handler(update: Update, context: CallbackContext):
         else:
             await safe_edit_message(query, "⚠ **Could not check payment status.** Try again later.")
 
-    elif query.data.startswith("back_to_"):  # Handle back button logic
+    elif query.data.startswith("back_to_"):  # 🔙 Handle Back Button
         plan = query.data.replace("back_to_", "")
         
         if plan in plan_prices:  # Going back to weekly/monthly selection
