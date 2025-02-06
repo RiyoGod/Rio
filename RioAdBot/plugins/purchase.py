@@ -51,21 +51,21 @@ def check_payment(invoice_id):
 # 🔹 Purchase Command (Async)
 async def purchase_command(update: Update, context: CallbackContext):
     message = (
-        "➜ **Choose Your Plan!**\n\n"
-        "◆ **Basic Plan**\n"
+        "<u>➜ **Choose Your Plan!**</u>\n\n"
+        "<u>◆ **Basic Plan**</u>\n"
         "├ Accounts: 1\n"
         "├ Intervals: 5 min\n"
-        "└ Price: $40/week | $100/month\n\n"
-        "◆ **Premium Plan**\n"
+        "└ Price: **$40/week** | **$100/month**\n\n"
+        "<u>◆ **Premium Plan**</u>\n"
         "├ Accounts: 4\n"
         "├ Intervals: 30 sec\n"
-        "└ Price: $250/week | $500/month\n\n"
-        "◆ **Immortal Plan**\n"
+        "└ Price: **$250/week** | **$500/month**\n\n"
+        "<u>◆ **Immortal Plan**</u>\n"
         "├ Accounts: 10\n"
         "├ Intervals: 60 sec\n"
-        "└ Price: $500/week | $1000/month\n\n"
+        "└ Price: **$500/week** | **$1000/month**\n\n"
         "━━━━━━━━━━━━━━━━━━━━━\n"
-        "➜ **Select a Plan to Continue Below!**\n\n"
+        "<u>➜ **Select a Plan to Continue Below!**</u>\n\n"
         "For support, contact @Boostadvert."
     )
 
@@ -76,7 +76,7 @@ async def purchase_command(update: Update, context: CallbackContext):
     ]
 
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.effective_chat.send_message(message, reply_markup=reply_markup, parse_mode="Markdown")
+    await update.effective_chat.send_message(message, reply_markup=reply_markup, parse_mode="HTML")
 
 # 🔹 Handle Button Clicks (Async)
 async def button_handler(update: Update, context: CallbackContext):
@@ -115,10 +115,10 @@ async def button_handler(update: Update, context: CallbackContext):
                 [InlineKeyboardButton("◀ Back", callback_data="back_to_plans")],
             ]
             await query.edit_message_text(
-                f"◆ **Payment for {plan.replace('_', ' ').title()} ({duration.title()})**\n\n"
+                f"<u>◆ **Payment for {plan.replace('_', ' ').title()} ({duration.title()})**</u>\n\n"
                 f"Click **'Pay Now'** to complete the payment.",
                 reply_markup=InlineKeyboardMarkup(keyboard),
-                parse_mode="Markdown"
+                parse_mode="HTML"
             )
         else:
             await query.edit_message_text("⚠ Error: Failed to create invoice. Try again later.")
