@@ -1,9 +1,13 @@
 import requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import CallbackContext
+from telegram.ext import CallbackContext, JobQueue
+import datetime
 
 # 🔹 Your CryptoBot API Key
 CRYPTOBOT_SECRET = "335607:AA3yJu1fkPWWbczmD6hw8uesXCiAwzIJWm1"
+
+# In-memory storage for user subscriptions (You can replace this with a database)
+subscriptions = {}
 
 # 🔹 Function to Create Invoice
 def create_invoice(amount, currency, user_id):
@@ -78,7 +82,7 @@ async def purchase_command(update: Update, context: CallbackContext):
 async def button_handler(update: Update, context: CallbackContext):
     query = update.callback_query
     await query.answer()
-    
+
     user_id = query.from_user.id  
 
     plan_prices = {
@@ -125,6 +129,17 @@ async def button_handler(update: Update, context: CallbackContext):
 
         if status == "paid":
             await query.edit_message_text("✔ **Payment received successfully!**\nYour plan is now active.")
+
+            # Save the subscription info (store it in your database for production)
+            plan, duration = query.data.split("_")
+            expiration_date = datetime.datetime.now() + (datetime.timedelta(weeks=1) if duration == "weekly" else datetime.timedelta(weeks=4))
+            subscriptions[user_id] = {
+                "plan": plan,
+                "expiration": expiration_date
+            }
+            # Notify user of expiration
+            await query.message.reply(f"Your **{plan.replace('_', ' ').title()}** plan will expire on **{expiration_date.strftime('%Y-%m-%d')}**.")
+
         elif status == "active":
             await query.edit_message_text("◆ **Payment is still pending.**\nPlease wait a moment and try again.")
         elif status == "expired":
@@ -142,3 +157,14 @@ async def button_handler(update: Update, context: CallbackContext):
     else:
         print(f"⚠ DEBUG: Unknown button action → {query.data}")
         await query.edit_message_text("⚠ **Invalid selection. Try again.**")
+
+
+# 🔹 Job to Check for Expired Plans and Notify User (Async)
+async def check_expiration(context: CallbackContext):
+    for user_id, subscription in subscriptions.items():
+        if subscription["expiration"] < datetime.datetime.now():
+            # Send expiration notification
+            user = await context.bot.get_chat(user_id)
+            await user.send_message(f"Your **{subscription['plan'].replace('_', ' ').title()}** plan has expired. Please renew your subscription.")
+            # You can remove expired plans if needed
+            del subscriptions[user_id]
