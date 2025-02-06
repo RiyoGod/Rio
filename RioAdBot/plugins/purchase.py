@@ -1,52 +1,53 @@
 import requests
+import qrcode
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import CallbackContext
 
-# 🔹 Your CryptoBot API Key
-CRYPTOBOT_SECRET = "335607:AA3yJu1fkPWWbczmD6hw8uesXCiAwzIJWm1"
+# 🔹 Your NowPayments API Key
+NOWPAYMENTS_API_KEY = "54494930-1b6d-45dd-ae40-5887d2e11d45"
 
-# 🔹 Create a Payment Invoice
-def create_invoice(amount, currency, user_id):
-    url = "https://pay.crypt.bot/api/createInvoice"
-    headers = {"Crypto-Pay-API-Token": CRYPTOBOT_SECRET, "Content-Type": "application/json"}
+# 🔹 Supported Cryptos
+SUPPORTED_ASSETS = ["USDT", "SOL", "TRX", "ADA"]
+
+# 🔹 Function to Create Payment Address
+def create_payment_address(amount, currency, user_id):
+    url = "https://api.nowpayments.io/v1/invoice"
+    headers = {
+        "x-api-key": NOWPAYMENTS_API_KEY,
+        "Content-Type": "application/json"
+    }
 
     payload = {
-        "asset": currency,
-        "amount": amount,
-        "description": "Your Plan Purchase",
-        "hidden_message": "Thanks for your payment!",
-        "paid_btn_name": "viewItem",
-        "paid_btn_url": "https://yourwebsite.com/order_status",
-        "payload": str(user_id),
-        "allow_comments": False,
-        "allow_anonymous": False,
-        "expires_in": 3600
+        "price_amount": amount,
+        "price_currency": "USD",
+        "pay_currency": currency,
+        "order_id": str(user_id),
+        "order_description": "Plan Purchase"
     }
 
     response = requests.post(url, headers=headers, json=payload).json()
-    print("🔍 API Response:", response)  # ✅ Debugging output
 
-    if response["ok"]:
-        return response["result"]["invoice_id"], response["result"]["pay_url"]
-    else:
-        return None, None
+    if response.get("id"):
+        return response["pay_address"], response["pay_currency"], response["payment_url"]
+    return None, None, None
 
-# 🔹 Check Payment Status
-def check_payment(invoice_id):
-    url = "https://pay.crypt.bot/api/getInvoices"
-    headers = {"Crypto-Pay-API-Token": CRYPTOBOT_SECRET}
+# 🔹 Function to Check Payment Status
+def check_payment_status(invoice_id):
+    url = f"https://api.nowpayments.io/v1/payment/{invoice_id}"
+    headers = {"x-api-key": NOWPAYMENTS_API_KEY}
 
     response = requests.get(url, headers=headers).json()
-    print("🔍 Payment Check Response:", response)  # ✅ Debugging output
 
-    if response["ok"]:
-        for invoice in response["result"]["items"]:
-            if invoice["invoice_id"] == invoice_id:
-                return invoice["status"]  # "paid", "active", "expired"
-
+    if response.get("payment_status"):
+        return response["payment_status"]
     return "unknown"
 
-# 🔹 Purchase Command
+# 🔹 Generate QR Code
+def generate_qr_code(payment_address):
+    qr = qrcode.make(payment_address)
+    qr.save("payment_qr.png")
+
+# 🔹 Purchase Command (Async)
 async def purchase_command(update: Update, context: CallbackContext):
     message = (
         "> **Choose Your Plan!!**\n\n"
@@ -74,9 +75,9 @@ async def purchase_command(update: Update, context: CallbackContext):
     ]
 
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.effective_chat.send_message(message, reply_markup=reply_markup, parse_mode="Markdown")
+    await update.message.reply_text(message, reply_markup=reply_markup, parse_mode="Markdown")
 
-# 🔹 Handle Button Clicks
+# 🔹 Handle Button Clicks (Async)
 async def button_handler(update: Update, context: CallbackContext):
     query = update.callback_query
     await query.answer()
@@ -101,28 +102,48 @@ async def button_handler(update: Update, context: CallbackContext):
     elif any(plan in query.data for plan in plan_prices):
         plan, duration = query.data.rsplit("_", 1)
         amount = plan_prices[plan][duration]
-        invoice_id, pay_url = create_invoice(amount, "USDT", user_id)
 
-        if pay_url:
+        keyboard = [
+            [InlineKeyboardButton(f"USDT", callback_data=f"pay_{amount}_USDT")],
+            [InlineKeyboardButton(f"SOL", callback_data=f"pay_{amount}_SOL")],
+            [InlineKeyboardButton(f"TRX", callback_data=f"pay_{amount}_TRX")],
+            [InlineKeyboardButton(f"ADA", callback_data=f"pay_{amount}_ADA")],
+            [InlineKeyboardButton("🔙 Back", callback_data="back_to_plans")],
+        ]
+        await query.edit_message_text(f"💰 **Payment for {plan.replace('_', ' ').title()} ({duration.title()})**\n\n"
+                                      f"Select a cryptocurrency to proceed.",
+                                      reply_markup=InlineKeyboardMarkup(keyboard),
+                                      parse_mode="Markdown")
+
+    elif query.data.startswith("pay_"):
+        _, amount, currency = query.data.split("_")
+        amount = int(amount)
+
+        payment_address, pay_currency, pay_url = create_payment_address(amount, currency, user_id)
+
+        if payment_address:
+            generate_qr_code(payment_address)
             keyboard = [
-                [InlineKeyboardButton("✅ Pay Now", url=pay_url)],
-                [InlineKeyboardButton("🔄 Check Payment", callback_data=f"check_{invoice_id}")],
+                [InlineKeyboardButton("🔄 Check Payment", callback_data=f"check_{user_id}")],
                 [InlineKeyboardButton("🔙 Back", callback_data="back_to_plans")],
             ]
-            await query.edit_message_text(f"💰 **Payment for {plan.replace('_', ' ').title()} ({duration.title()})**\n\n"
-                                          f"Click **'Pay Now'** to complete the payment.",
+            await query.edit_message_text(f"💰 **Pay {amount} USD in {pay_currency}**\n\n"
+                                          f"📍 **Wallet Address:** `{payment_address}`\n\n"
+                                          f"📸 **Scan QR to Pay**\n"
+                                          f"(Or click the button below to check payment status)\n",
                                           reply_markup=InlineKeyboardMarkup(keyboard),
                                           parse_mode="Markdown")
+            await context.bot.send_photo(chat_id=query.message.chat_id, photo=open("payment_qr.png", "rb"))
         else:
-            await query.edit_message_text("❌ Failed to create invoice. Try again later.")
+            await query.edit_message_text("❌ Failed to generate a payment address. Try again later.")
 
     elif query.data.startswith("check_"):
-        invoice_id = int(query.data.split("_")[1])
-        status = check_payment(invoice_id)
+        invoice_id = query.data.split("_")[1]
+        status = check_payment_status(invoice_id)
 
-        if status == "paid":
+        if status == "finished":
             await query.edit_message_text("✅ **Payment received successfully!**\nYour plan is now active.")
-        elif status == "active":
+        elif status == "waiting":
             await query.edit_message_text("⌛ **Payment is still pending.**\nPlease wait a moment and try again.")
         elif status == "expired":
             await query.edit_message_text("❌ **Invoice expired!**\nPlease generate a new invoice.")
@@ -130,4 +151,4 @@ async def button_handler(update: Update, context: CallbackContext):
             await query.edit_message_text("⚠️ **Could not check payment status.** Try again later.")
 
     elif query.data == "back_to_plans":
-        await purchase_command(update, context)
+        await purchase_command(update, context)  # Call purchase command again to show plans
