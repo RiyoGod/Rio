@@ -44,7 +44,7 @@ def check_payment(invoice_id):
 
     return "unknown"
 
-# 🔹 Safe Message Editing Function (Fixes Telegram Edit Error)
+# 🔹 Safe Message Editing Function
 async def safe_edit_message(query, text, reply_markup=None):
     try:
         await query.edit_message_text(text, reply_markup=reply_markup, parse_mode="Markdown")
@@ -100,7 +100,7 @@ async def button_handler(update: Update, context: CallbackContext):
 
     print(f"Button clicked: {query.data}")  # Debugging log
 
-    if query.data in plan_prices:
+    if query.data in plan_prices:  # Show weekly/monthly selection
         selected_plan = query.data
         keyboard = [
             [InlineKeyboardButton(f"● Monthly (${plan_prices[selected_plan]['monthly']})", callback_data=f"{selected_plan}_monthly")],
@@ -109,14 +109,14 @@ async def button_handler(update: Update, context: CallbackContext):
         ]
         await safe_edit_message(query, "➜ Select a duration:", InlineKeyboardMarkup(keyboard))
 
-    elif "_" in query.data:
-        parts = query.data.split("_")
-
-        if len(parts) == 2 and parts[0] in plan_prices:  # Check if it's a valid plan selection
+    elif any(plan in query.data for plan in plan_prices):  # Handle weekly/monthly selection
+        parts = query.data.rsplit("_", 1)  
+        if len(parts) == 2:
             plan, duration = parts
-            amount = plan_prices[plan].get(duration)  # Avoid KeyError
-            if amount:
+            if plan in plan_prices and duration in ["weekly", "monthly"]:  
+                amount = plan_prices[plan][duration]
                 invoice_id, pay_url = create_invoice(amount, "USDT", user_id)
+
                 if pay_url:
                     keyboard = [
                         [InlineKeyboardButton("✔ Pay Now", url=pay_url)],
@@ -137,7 +137,7 @@ async def button_handler(update: Update, context: CallbackContext):
         else:
             await safe_edit_message(query, "⚠ Invalid action. Try again.")
 
-    elif query.data.startswith("check_"):
+    elif query.data.startswith("check_"):  # Check payment status
         invoice_id = int(query.data.split("_")[1])
         status = check_payment(invoice_id)
 
@@ -150,7 +150,7 @@ async def button_handler(update: Update, context: CallbackContext):
         else:
             await safe_edit_message(query, "⚠ **Could not check payment status.** Try again later.")
 
-    elif query.data.startswith("back_to_"):
+    elif query.data.startswith("back_to_"):  # Handle back button logic
         plan = query.data.replace("back_to_", "")
         
         if plan in plan_prices:  # Going back to weekly/monthly selection
