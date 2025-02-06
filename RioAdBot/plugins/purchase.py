@@ -70,9 +70,9 @@ async def purchase_command(update: Update, context: CallbackContext):
     )
 
     keyboard = [
-        [InlineKeyboardButton("Basic Plan", callback_data="basic_plan")],
-        [InlineKeyboardButton("Premium Plan", callback_data="premium_plan")],
-        [InlineKeyboardButton("Immortal Plan", callback_data="immortal_plan")],
+        [InlineKeyboardButton("Basic Plan", callback_data="plan_basic")],
+        [InlineKeyboardButton("Premium Plan", callback_data="plan_premium")],
+        [InlineKeyboardButton("Immortal Plan", callback_data="plan_immortal")],
     ]
 
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -85,40 +85,36 @@ async def button_handler(update: Update, context: CallbackContext):
     
     user_id = query.from_user.id  
 
-    if query.data in plan_prices:
-        selected_plan = query.data
-        keyboard = [
-            [InlineKeyboardButton(f"Monthly (${plan_prices[selected_plan]['monthly']})", callback_data=f"{selected_plan}_monthly")],
-            [InlineKeyboardButton(f"Weekly (${plan_prices[selected_plan]['weekly']})", callback_data=f"{selected_plan}_weekly")],
-            [InlineKeyboardButton("🔙 Back", callback_data="back_to_plans")],
-        ]
-        await query.edit_message_text("Select duration:", reply_markup=InlineKeyboardMarkup(keyboard))
-
-    elif any(plan in query.data for plan in plan_prices):
-        parts = query.data.split("_")
-        
-        if len(parts) != 3:  
-            await query.edit_message_text("❌ Invalid selection. Please try again.")
-            return
-        
-        plan, duration, currency = parts
-        
-        if plan in plan_prices and duration in plan_prices[plan]:
-            amount = plan_prices[plan][duration]
+    if query.data.startswith("plan_"):
+        selected_plan = query.data.split("_")[1] + "_plan"
+        if selected_plan in plan_prices:
+            keyboard = [
+                [InlineKeyboardButton(f"Monthly (${plan_prices[selected_plan]['monthly']})", callback_data=f"duration_{selected_plan}_monthly")],
+                [InlineKeyboardButton(f"Weekly (${plan_prices[selected_plan]['weekly']})", callback_data=f"duration_{selected_plan}_weekly")],
+                [InlineKeyboardButton("🔙 Back", callback_data="back_to_plans")],
+            ]
+            await query.edit_message_text("Select duration:", reply_markup=InlineKeyboardMarkup(keyboard))
         else:
-            await query.edit_message_text("❌ Invalid plan or duration. Please try again.")
-            return
+            await query.edit_message_text("❌ Invalid plan. Please try again.")
 
-        # Payment Method Selection
-        keyboard = [
-            [InlineKeyboardButton(f"{asset}", callback_data=f"{plan}_{duration}_{asset}")] for asset in SUPPORTED_ASSETS
-        ]
-        keyboard.append([InlineKeyboardButton("🔙 Back", callback_data="back_to_plans")])
-        await query.edit_message_text("🔹 Select Payment Currency:", reply_markup=InlineKeyboardMarkup(keyboard))
+    elif query.data.startswith("duration_"):
+        _, plan, duration = query.data.split("_")
+        selected_plan = plan + "_plan"
 
-    elif any(asset in query.data for asset in SUPPORTED_ASSETS):
-        plan, duration, currency = query.data.split("_")
-        amount = plan_prices[plan][duration]
+        if selected_plan in plan_prices and duration in plan_prices[selected_plan]:
+            amount = plan_prices[selected_plan][duration]
+            keyboard = [
+                [InlineKeyboardButton(f"{asset}", callback_data=f"pay_{selected_plan}_{duration}_{asset}") for asset in SUPPORTED_ASSETS],
+                [InlineKeyboardButton("🔙 Back", callback_data="back_to_plans")],
+            ]
+            await query.edit_message_text("🔹 Select Payment Currency:", reply_markup=InlineKeyboardMarkup(keyboard))
+        else:
+            await query.edit_message_text("❌ Invalid duration. Please try again.")
+
+    elif query.data.startswith("pay_"):
+        _, plan, duration, currency = query.data.split("_")
+        selected_plan = plan + "_plan"
+        amount = plan_prices[selected_plan][duration]
         pay_address, pay_url, qr_code = create_payment(amount, currency, user_id)
 
         if pay_address:
@@ -127,7 +123,7 @@ async def button_handler(update: Update, context: CallbackContext):
                 [InlineKeyboardButton("🔙 Back", callback_data="back_to_plans")],
             ]
             await query.edit_message_text(
-                f"💰 **Payment for {plan.replace('_', ' ').title()} ({duration.title()})**\n\n"
+                f"💰 **Payment for {selected_plan.replace('_', ' ').title()} ({duration.title()})**\n\n"
                 f"Send **{amount} {currency}** to:\n"
                 f"**{pay_address}**\n\n"
                 f"🔹 [Click here to view QR Code]({qr_code})",
