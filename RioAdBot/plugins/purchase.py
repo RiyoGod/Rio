@@ -6,46 +6,52 @@ from telegram.ext import CallbackContext
 # 🔹 Your NowPayments API Key
 NOWPAYMENTS_API_KEY = "54494930-1b6d-45dd-ae40-5887d2e11d45"
 
-# 🔹 Supported Cryptos
-SUPPORTED_ASSETS = ["USDT", "SOL", "TRX", "ADA"]
+# 🔹 Supported Crypto Currencies
+SUPPORTED_ASSETS = ["USDT", "BTC", "ETH", "SOL", "TRX", "ADA"]
 
 # 🔹 Function to Create Payment Address
 def create_payment_address(amount, currency, user_id):
-    url = "https://api.nowpayments.io/v1/invoice"
-    headers = {
-        "x-api-key": NOWPAYMENTS_API_KEY,
-        "Content-Type": "application/json"
-    }
+    url = "https://api.nowpayments.io/v1/payment"
+    headers = {"x-api-key": NOWPAYMENTS_API_KEY, "Content-Type": "application/json"}
 
     payload = {
         "price_amount": amount,
         "price_currency": "USD",
         "pay_currency": currency,
+        "ipn_callback_url": "https://yourserver.com/payment_callback",
         "order_id": str(user_id),
-        "order_description": "Plan Purchase"
+        "order_description": "Premium Plan Purchase"
     }
 
     response = requests.post(url, headers=headers, json=payload).json()
 
-    if response.get("id"):
-        return response["pay_address"], response["pay_currency"], response["payment_url"]
-    return None, None, None
+    if "payment_id" in response:
+        return response["pay_address"], response["payment_id"], response["pay_amount"]
+    else:
+        print("🔍 API Response:", response)  # ✅ Debugging Log
+        return None, None, None
 
 # 🔹 Function to Check Payment Status
-def check_payment_status(invoice_id):
-    url = f"https://api.nowpayments.io/v1/payment/{invoice_id}"
+def check_payment_status(payment_id):
+    url = f"https://api.nowpayments.io/v1/payment/{payment_id}"
     headers = {"x-api-key": NOWPAYMENTS_API_KEY}
 
     response = requests.get(url, headers=headers).json()
 
-    if response.get("payment_status"):
-        return response["payment_status"]
+    if response.get("payment_status") == "finished":
+        return "paid"
+    elif response.get("payment_status") == "waiting":
+        return "pending"
+    elif response.get("payment_status") == "expired":
+        return "expired"
+    
     return "unknown"
 
-# 🔹 Generate QR Code
-def generate_qr_code(payment_address):
-    qr = qrcode.make(payment_address)
+# 🔹 Function to Generate QR Code
+def generate_qr_code(address):
+    qr = qrcode.make(address)
     qr.save("payment_qr.png")
+    return "payment_qr.png"
 
 # 🔹 Purchase Command (Async)
 async def purchase_command(update: Update, context: CallbackContext):
@@ -104,46 +110,45 @@ async def button_handler(update: Update, context: CallbackContext):
         amount = plan_prices[plan][duration]
 
         keyboard = [
-            [InlineKeyboardButton(f"USDT", callback_data=f"pay_{amount}_USDT")],
-            [InlineKeyboardButton(f"SOL", callback_data=f"pay_{amount}_SOL")],
-            [InlineKeyboardButton(f"TRX", callback_data=f"pay_{amount}_TRX")],
-            [InlineKeyboardButton(f"ADA", callback_data=f"pay_{amount}_ADA")],
+            [InlineKeyboardButton("USDT", callback_data=f"{plan}_{duration}_USDT")],
+            [InlineKeyboardButton("BTC", callback_data=f"{plan}_{duration}_BTC")],
+            [InlineKeyboardButton("ETH", callback_data=f"{plan}_{duration}_ETH")],
+            [InlineKeyboardButton("SOL", callback_data=f"{plan}_{duration}_SOL")],
+            [InlineKeyboardButton("TRX", callback_data=f"{plan}_{duration}_TRX")],
+            [InlineKeyboardButton("ADA", callback_data=f"{plan}_{duration}_ADA")],
             [InlineKeyboardButton("🔙 Back", callback_data="back_to_plans")],
         ]
-        await query.edit_message_text(f"💰 **Payment for {plan.replace('_', ' ').title()} ({duration.title()})**\n\n"
-                                      f"Select a cryptocurrency to proceed.",
-                                      reply_markup=InlineKeyboardMarkup(keyboard),
-                                      parse_mode="Markdown")
 
-    elif query.data.startswith("pay_"):
-        _, amount, currency = query.data.split("_")
-        amount = int(amount)
+        await query.edit_message_text("Choose a cryptocurrency:", reply_markup=InlineKeyboardMarkup(keyboard))
 
-        payment_address, pay_currency, pay_url = create_payment_address(amount, currency, user_id)
+    elif any(asset in query.data for asset in SUPPORTED_ASSETS):
+        plan, duration, currency = query.data.split("_")
+        amount = plan_prices[plan][duration]
+        pay_address, payment_id, pay_amount = create_payment_address(amount, currency, user_id)
 
-        if payment_address:
-            generate_qr_code(payment_address)
+        if pay_address:
+            qr_path = generate_qr_code(pay_address)
             keyboard = [
-                [InlineKeyboardButton("🔄 Check Payment", callback_data=f"check_{user_id}")],
+                [InlineKeyboardButton("🔄 Check Payment", callback_data=f"check_{payment_id}")],
                 [InlineKeyboardButton("🔙 Back", callback_data="back_to_plans")],
             ]
-            await query.edit_message_text(f"💰 **Pay {amount} USD in {pay_currency}**\n\n"
-                                          f"📍 **Wallet Address:** `{payment_address}`\n\n"
-                                          f"📸 **Scan QR to Pay**\n"
-                                          f"(Or click the button below to check payment status)\n",
-                                          reply_markup=InlineKeyboardMarkup(keyboard),
-                                          parse_mode="Markdown")
-            await context.bot.send_photo(chat_id=query.message.chat_id, photo=open("payment_qr.png", "rb"))
+            await query.message.reply_photo(photo=open(qr_path, "rb"),
+                                            caption=f"💰 **Payment for {plan.replace('_', ' ').title()} ({duration.title()})**\n\n"
+                                                    f"Amount: **{pay_amount} {currency}**\n"
+                                                    f"Address: `{pay_address}`\n\n"
+                                                    f"Scan the QR code or copy the address to pay.",
+                                            reply_markup=InlineKeyboardMarkup(keyboard),
+                                            parse_mode="Markdown")
         else:
             await query.edit_message_text("❌ Failed to generate a payment address. Try again later.")
 
     elif query.data.startswith("check_"):
-        invoice_id = query.data.split("_")[1]
-        status = check_payment_status(invoice_id)
+        payment_id = query.data.split("_")[1]
+        status = check_payment_status(payment_id)
 
-        if status == "finished":
+        if status == "paid":
             await query.edit_message_text("✅ **Payment received successfully!**\nYour plan is now active.")
-        elif status == "waiting":
+        elif status == "pending":
             await query.edit_message_text("⌛ **Payment is still pending.**\nPlease wait a moment and try again.")
         elif status == "expired":
             await query.edit_message_text("❌ **Invoice expired!**\nPlease generate a new invoice.")
