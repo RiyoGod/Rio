@@ -118,8 +118,8 @@ async def button_handler(update: Update, context: CallbackContext):
             keyboard = [
                 [InlineKeyboardButton("✔ Pay Now", url=pay_url)],
                 [InlineKeyboardButton("🔄 Check Payment", callback_data=f"check_{invoice_id}")],
-                [InlineKeyboardButton("✖ Cancel Payment", callback_data="cancel_payment")],
-                [InlineKeyboardButton("↩ Back", callback_data="back_to_plans")],
+                [InlineKeyboardButton("✖ Cancel Payment", callback_data=f"back_to_{plan}")],
+                [InlineKeyboardButton("↩ Back", callback_data=f"back_to_{plan}")],
             ]
             await safe_edit_message(
                 query,
@@ -143,8 +143,16 @@ async def button_handler(update: Update, context: CallbackContext):
         else:
             await safe_edit_message(query, "⚠ **Could not check payment status.** Try again later.")
 
-    elif query.data == "back_to_plans":
-        await show_plan_selection(query)
+    elif query.data.startswith("back_to_"):
+        plan = query.data.replace("back_to_", "")
+        
+        if plan in plan_prices:  # Going back to weekly/monthly selection
+            keyboard = [
+                [InlineKeyboardButton(f"● Monthly (${plan_prices[plan]['monthly']})", callback_data=f"{plan}_monthly")],
+                [InlineKeyboardButton(f"● Weekly (${plan_prices[plan]['weekly']})", callback_data=f"{plan}_weekly")],
+                [InlineKeyboardButton("↩ Back", callback_data="back_to_plans")],
+            ]
+            await safe_edit_message(query, "➜ Select a duration:", InlineKeyboardMarkup(keyboard))
 
-    elif query.data == "cancel_payment":
-        await show_plan_selection(query)  # Cancel payment returns to plan selection
+        else:  # Going back to plan selection
+            await show_plan_selection(query)
