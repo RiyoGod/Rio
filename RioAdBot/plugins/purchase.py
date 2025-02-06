@@ -7,9 +7,9 @@ NOWPAYMENTS_API_KEY = "54494930-1b6d-45dd-ae40-5887d2e11d45"
 
 # 🔹 Plan Prices
 plan_prices = {
-    "basic_plan": {"weekly": 40, "monthly": 100},
-    "premium_plan": {"weekly": 250, "monthly": 500},
-    "immortal_plan": {"weekly": 500, "monthly": 1000},
+    "basic": {"weekly": 40, "monthly": 100},
+    "premium": {"weekly": 250, "monthly": 500},
+    "immortal": {"weekly": 500, "monthly": 1000},
 }
 
 # 🔹 Supported Crypto Assets
@@ -31,9 +31,9 @@ def create_payment(amount, currency, user_id):
     }
 
     response = requests.post(url, headers=headers, json=payload).json()
-    
+
     if response.get("id"):
-        return response["pay_address"], response.get("payment_url"), response["qr_code"]
+        return response["pay_address"], response.get("payment_url"), response.get("qr_code")
     return None, None, None
 
 # 🔹 Function to Check Payment Status
@@ -43,10 +43,7 @@ def check_payment_status(order_id):
 
     response = requests.get(url, headers=headers).json()
 
-    if response.get("payment_status"):
-        return response["payment_status"]  # "waiting", "confirmed", "failed"
-    
-    return "unknown"
+    return response.get("payment_status", "unknown")
 
 # 🔹 Purchase Command
 async def purchase_command(update: Update, context: CallbackContext):
@@ -86,7 +83,7 @@ async def button_handler(update: Update, context: CallbackContext):
     user_id = query.from_user.id  
 
     if query.data.startswith("plan_"):
-        selected_plan = query.data.split("_")[1] + "_plan"
+        selected_plan = query.data.split("_")[1]
         if selected_plan in plan_prices:
             keyboard = [
                 [InlineKeyboardButton(f"Monthly (${plan_prices[selected_plan]['monthly']})", callback_data=f"duration_{selected_plan}_monthly")],
@@ -98,13 +95,11 @@ async def button_handler(update: Update, context: CallbackContext):
             await query.edit_message_text("❌ Invalid plan. Please try again.")
 
     elif query.data.startswith("duration_"):
-        _, plan, duration = query.data.split("_")
-        selected_plan = plan + "_plan"
-
-        if selected_plan in plan_prices and duration in plan_prices[selected_plan]:
-            amount = plan_prices[selected_plan][duration]
+        _, plan, duration = query.data.split("_", 2)  # ✅ Fixed to unpack properly
+        if plan in plan_prices and duration in plan_prices[plan]:
+            amount = plan_prices[plan][duration]
             keyboard = [
-                [InlineKeyboardButton(f"{asset}", callback_data=f"pay_{selected_plan}_{duration}_{asset}") for asset in SUPPORTED_ASSETS],
+                [InlineKeyboardButton(f"{asset}", callback_data=f"pay_{plan}_{duration}_{asset}") for asset in SUPPORTED_ASSETS],
                 [InlineKeyboardButton("🔙 Back", callback_data="back_to_plans")],
             ]
             await query.edit_message_text("🔹 Select Payment Currency:", reply_markup=InlineKeyboardMarkup(keyboard))
@@ -112,9 +107,13 @@ async def button_handler(update: Update, context: CallbackContext):
             await query.edit_message_text("❌ Invalid duration. Please try again.")
 
     elif query.data.startswith("pay_"):
-        _, plan, duration, currency = query.data.split("_")
-        selected_plan = plan + "_plan"
-        amount = plan_prices[selected_plan][duration]
+        _, plan, duration, currency = query.data.split("_", 3)  # ✅ Fixed unpacking
+        amount = plan_prices.get(plan, {}).get(duration)
+        
+        if not amount:
+            await query.edit_message_text("❌ Invalid plan or duration. Please try again.")
+            return
+
         pay_address, pay_url, qr_code = create_payment(amount, currency, user_id)
 
         if pay_address:
@@ -123,7 +122,7 @@ async def button_handler(update: Update, context: CallbackContext):
                 [InlineKeyboardButton("🔙 Back", callback_data="back_to_plans")],
             ]
             await query.edit_message_text(
-                f"💰 **Payment for {selected_plan.replace('_', ' ').title()} ({duration.title()})**\n\n"
+                f"💰 **Payment for {plan.replace('_', ' ').title()} ({duration.title()})**\n\n"
                 f"Send **{amount} {currency}** to:\n"
                 f"**{pay_address}**\n\n"
                 f"🔹 [Click here to view QR Code]({qr_code})",
