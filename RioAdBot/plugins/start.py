@@ -7,19 +7,19 @@ async def start_command(update: Update, context: CallbackContext):
     user = update.effective_user
     first_name = user.first_name
 
-    # ✅ Properly Bold Welcome Message
+    # ✅ Properly Bold Welcome Message (Markdown v2)
     welcome_message = (
-        f"**Hello, {first_name}!**\n\n"
-        "**Welcome to @BoostAdvertBot – the ultimate ad automation tool.**\n\n"
-        "**Why Choose Us?**\n"
-        "**➤ Automated & targeted advertising**\n"
-        "**➤ Affordable promotion plans**\n\n"
-        "**Get Started:**\n"
-        "**➤ Use /purchase to buy ad plans.**\n"
-        "**➤ Need help? Contact @Boostadvert.**"
+        f"*Hello, {first_name}!*  \n\n"
+        "*Welcome to @BoostAdvertBot – the ultimate ad automation tool\\.*  \n\n"
+        "*Why Choose Us?*  \n"
+        "➤ *Automated & targeted advertising*  \n"
+        "➤ *Affordable promotion plans*  \n\n"
+        "*Get Started:*  \n"
+        "➤ *Use /purchase to buy ad plans\\.*  \n"
+        "➤ *Need help? Contact @Boostadvert\\.*"
     )
 
-    await update.message.reply_text(welcome_message, parse_mode="Markdown")
+    await update.message.reply_text(welcome_message, parse_mode="MarkdownV2")
 
     # ✅ Log user to the group
     await log_user_to_group(update, context)  # ✅ Correct function call
