@@ -82,7 +82,6 @@ async def show_plan_selection(update):
 
 # 🔹 Purchase Command
 async def purchase_command(update: Update, context: CallbackContext):
-    print("✔ /purchase command triggered!")  # Debugging log
     await show_plan_selection(update)
 
 # 🔹 Handle Button Clicks
@@ -97,8 +96,6 @@ async def button_handler(update: Update, context: CallbackContext):
         "premium_plan": {"weekly": 250, "monthly": 500},
         "immortal_plan": {"weekly": 500, "monthly": 1000},
     }
-
-    print(f"Button clicked: {query.data}")  # Debugging log
 
     if query.data in plan_prices:  # Show weekly/monthly selection
         selected_plan = query.data
