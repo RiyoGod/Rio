@@ -2,45 +2,44 @@ import requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import CallbackContext
 
-# ✅ NOWPayments API Key
-NOWPAYMENTS_API_KEY = "54494930-1b6d-45dd-ae40-5887d2e11d45"
+# ✅ CoinsPayment API Key
+COINSPAYMENT_API_KEY = "d6b9e7fe7a7f302290b341db24569e41750915bd01f53d673e4bde432933c820"
 
 # ✅ Generate Crypto Payment Address
 def generate_payment_address(amount, currency, order_id):
-    url = "https://api.nowpayments.io/v1/payment"
+    url = "https://coinspayment.io/api/v1/create-payment"
     headers = {
-        "x-api-key": NOWPAYMENTS_API_KEY,
+        "Authorization": f"Bearer {COINSPAYMENT_API_KEY}",
         "Content-Type": "application/json"
     }
     payload = {
-        "price_amount": amount,
-        "price_currency": "USD",  
-        "pay_currency": currency,  
+        "amount": amount,
+        "currency": currency,
         "order_id": str(order_id),
-        "order_description": "Plan Purchase",
-        "is_fixed_rate": True
+        "description": "Plan Purchase",
+        "callback_url": "https://your-callback-url.com"  # Replace with your callback URL
     }
     
     response = requests.post(url, json=payload, headers=headers).json()
     print("🔍 API Response:", response)  # Debugging Log
 
-    if response.get("payment_id"):
-        return response["pay_address"], response["pay_currency"], response["payment_id"]
+    if response.get("status") == "success":
+        return response["data"]["address"], response["data"]["currency"], response["data"]["payment_id"]
     else:
         return None, None, None
 
 # ✅ Check Payment Status
 def check_payment(payment_id):
-    url = f"https://api.nowpayments.io/v1/payment/{payment_id}"
-    headers = {"x-api-key": NOWPAYMENTS_API_KEY}
+    url = f"https://coinspayment.io/api/v1/payment-status/{payment_id}"
+    headers = {"Authorization": f"Bearer {COINSPAYMENT_API_KEY}"}
     
     response = requests.get(url, headers=headers).json()
 
-    if response.get("payment_status") == "finished":
+    if response.get("status") == "completed":
         return "paid"
-    elif response.get("payment_status") == "waiting":
+    elif response.get("status") == "pending":
         return "pending"
-    elif response.get("payment_status") == "failed":
+    elif response.get("status") == "failed":
         return "failed"
     else:
         return "unknown"
