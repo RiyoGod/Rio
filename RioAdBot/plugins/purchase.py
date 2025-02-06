@@ -51,8 +51,8 @@ async def safe_edit_message(query, text, reply_markup=None):
     except:
         await query.message.reply_text(text, reply_markup=reply_markup, parse_mode="Markdown")
 
-# 🔹 Show Plan Selection
-async def show_plan_selection(update):
+# 🔹 Show Plan Selection (Updated to handle both new messages and edits)
+async def show_plan_selection(update_or_query):
     message = (
         "**➜ Choose Your Plan!**\n\n"
         "◆ **Basic Plan**\n"
@@ -78,13 +78,17 @@ async def show_plan_selection(update):
         [InlineKeyboardButton("◆ Immortal Plan", callback_data="immortal_plan")],
     ]
 
-    await update.message.reply_text(message, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+    # Handle both new messages (from /purchase) and edits (from back button)
+    if isinstance(update_or_query, Update):
+        await update_or_query.message.reply_text(message, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+    else:
+        await safe_edit_message(update_or_query, message, InlineKeyboardMarkup(keyboard))
 
 # 🔹 Purchase Command
 async def purchase_command(update: Update, context: CallbackContext):
     await show_plan_selection(update)
 
-# 🔹 Handle Button Clicks
+# 🔹 Handle Button Clicks (Fixed back navigation)
 async def button_handler(update: Update, context: CallbackContext):
     query = update.callback_query
     await query.answer()
@@ -106,7 +110,7 @@ async def button_handler(update: Update, context: CallbackContext):
         ]
         await safe_edit_message(query, "➜ Select a duration:", InlineKeyboardMarkup(keyboard))
 
-    elif "_" in query.data and not query.data.startswith("check_"):  # Handle weekly/monthly selection
+    elif "_" in query.data and not query.data.startswith("check_"):  # Handle duration selection
         parts = query.data.rsplit("_", 1)
         if len(parts) == 2:
             plan, duration = parts
@@ -134,7 +138,7 @@ async def button_handler(update: Update, context: CallbackContext):
         else:
             await safe_edit_message(query, "⚠ Invalid action. Try again.")
 
-    elif query.data.startswith("check_"):  # ✅ Handles Payment Status Check
+    elif query.data.startswith("check_"):  # Check payment status
         invoice_id = int(query.data.split("_")[1])
         status = check_payment(invoice_id)
 
@@ -147,21 +151,16 @@ async def button_handler(update: Update, context: CallbackContext):
         else:
             await safe_edit_message(query, "⚠ **Could not check payment status.** Try again later.")
 
-    elif query.data.startswith("cancel_"):  # ✖ Cancel Payment Button
+    elif query.data.startswith("cancel_"):  # Cancel payment
         await safe_edit_message(query, "❌ **Payment cancelled.**\nYou can choose a plan again.")
 
-    elif query.data.startswith("back_to_"):  # 🔙 Handle Back Button
-        plan = query.data.replace("back_to_", "")
+    elif query.data.startswith("back_to_"):  # Back navigation logic (FIXED)
+        target = query.data.replace("back_to_", "")
         
-        if plan in plan_prices:  # Going back to weekly/monthly selection
+        if target in plan_prices:  # Back to duration selection
             keyboard = [
-                [InlineKeyboardButton(f"● Monthly (${plan_prices[plan]['monthly']})", callback_data=f"{plan}_monthly")],
-                [InlineKeyboardButton(f"● Weekly (${plan_prices[plan]['weekly']})", callback_data=f"{plan}_weekly")],
+                [InlineKeyboardButton(f"● Monthly (${plan_prices[target]['monthly']})", callback_data=f"{target}_monthly")],
+                [InlineKeyboardButton(f"● Weekly (${plan_prices[target]['weekly']})", callback_data=f"{target}_weekly")],
                 [InlineKeyboardButton("↩ Back", callback_data="back_to_plans")],
             ]
-            await safe_edit_message(query, "➜ Select a duration:", InlineKeyboardMarkup(keyboard))
-
-        elif query.data == "back_to_plans":  # Going back to plan selection
-            await show_plan_selection(query)
-        else:
-            await safe_edit_message(query, "⚠ Invalid selection. Try again.")
+            await safe_edit
