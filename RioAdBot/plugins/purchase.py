@@ -10,16 +10,23 @@ CRYPTOBOT_SECRET = "335607:AA3yJu1fkPWWbczmD6hw8uesXCiAwzIJWm1"
 # In-memory storage for user subscriptions (Replace this with a database in production)
 subscriptions = {}
 
-# 🔹 Function to Fetch USDT Address
+# 🔹 Function to Fetch USDT Address with Better Error Handling
 def get_usdt_address():
     url = "https://pay.crypt.bot/api/getBalance"
     headers = {"Crypto-Pay-API-Token": CRYPTOBOT_SECRET}
 
     response = requests.get(url, headers=headers).json()
-    if response["ok"]:
-        for asset in response["result"]:
-            if asset["currency"] == "USDT":
-                return asset["wallet"]  # Returns the USDT deposit address
+
+    if not response.get("ok"):
+        print(f"◆ ERROR: Failed to fetch balance → {response}")  # Debugging log
+        return None
+
+    assets = response.get("result", [])
+    for asset in assets:
+        if asset.get("asset") == "USDT":
+            return asset.get("wallet")
+
+    print(f"◆ ERROR: No USDT wallet found in response → {response}")  # Debugging log
     return None
 
 # 🔹 Function to Generate QR Code
