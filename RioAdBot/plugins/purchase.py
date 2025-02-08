@@ -86,7 +86,7 @@ async def button_handler(update: Update, context: CallbackContext):
     user_id = query.from_user.id  
 
     plan_prices = {
-    "basic_plan": {"weekly": 1, "monthly": 100},  # Changed weekly price to $1
+    "basic_plan": {"weekly": 40, "monthly": 100},  # Changed weekly price to $1
     "premium_plan": {"weekly": 250, "monthly": 500},
     "immortal_plan": {"weekly": 500, "monthly": 1000},
 }
