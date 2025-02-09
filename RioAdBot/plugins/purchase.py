@@ -1,13 +1,13 @@
 import requests
 import qrcode
+import datetime
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import CallbackContext
-import datetime
 
 # 🔹 Your CryptoBot API Key
 CRYPTOBOT_SECRET = "335607:AA3yJu1fkPWWbczmD6hw8uesXCiAwzIJWm1"
 
-# In-memory storage for user subscriptions (You can replace this with a database)
+# In-memory storage for user subscriptions (Replace with a database if needed)
 subscriptions = {}
 
 # 🔹 Function to Generate a USDT Payment Invoice
@@ -28,16 +28,19 @@ def get_usdt_address(amount, user_id):
 
     response = requests.post(url, headers=headers, json=payload).json()
 
-    if response["ok"]:
-        return response["result"]["address"]  # Fetch the generated USDT deposit address
+    # Debugging: Print the full API response
+    print(f"◆ DEBUG: CryptoBot API Response → {response}")
+
+    if response.get("ok") and "result" in response:
+        return response["result"].get("pay_url")  # Use "pay_url" instead of "address"
     else:
-        print(f"◆ ERROR: Failed to create USDT invoice → {response}")  # Debugging log
+        print(f"◆ ERROR: Failed to create USDT invoice → {response}")  # Log full response
         return None
 
 # 🔹 Function to Generate QR Code for USDT Address
-def generate_qr_code(usdt_address):
-    qr = qrcode.make(usdt_address)
-    qr_path = f"/tmp/usdt_qr_{usdt_address[-6:]}.png"
+def generate_qr_code(pay_url):
+    qr = qrcode.make(pay_url)
+    qr_path = f"/tmp/usdt_qr_{pay_url[-6:]}.png"
     qr.save(qr_path)
     return qr_path
 
@@ -99,19 +102,20 @@ async def button_handler(update: Update, context: CallbackContext):
         plan, duration = query.data.rsplit("_", 1)
         amount = plan_prices[plan][duration]
 
-        usdt_address = get_usdt_address(amount, user_id)
-        if not usdt_address:
+        pay_url = get_usdt_address(amount, user_id)
+        if not pay_url:
             await query.edit_message_text("⚠ Error: Could not generate a USDT deposit address. Try again later.")
             return
 
-        qr_path = generate_qr_code(usdt_address)
+        qr_path = generate_qr_code(pay_url)
         await context.bot.send_photo(
             chat_id=user_id,
             photo=open(qr_path, "rb"),
             caption=f"◆ **Payment for {plan.replace('_', ' ').title()} ({duration.title()})**\n\n"
-                    f"Send **${amount} USDT** to the address below:\n\n"
-                    f"🔹 **USDT Address:** `{usdt_address}`\n\n"
-                    f"✅ Scan the QR Code or copy the address to pay."
+                    f"Send **${amount} USDT** using the link below:\n\n"
+                    f"🔹 **Payment Link:** [Click here]({pay_url})\n\n"
+                    f"✅ Scan the QR Code or click the link to pay.",
+            parse_mode="Markdown"
         )
 
     elif query.data == "back_to_plans":
