@@ -1,46 +1,48 @@
 import requests
 import qrcode
-import datetime
+import os
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import CallbackContext
+from telegram.ext import CallbackContext, CommandHandler, CallbackQueryHandler
+import datetime
 
-# 🔹 Your CryptoBot API Key
-CRYPTOBOT_SECRET = "335607:AA3yJu1fkPWWbczmD6hw8uesXCiAwzIJWm1"
+# NowaPay API Key (Replace with your actual API Key)
+NOWAPAY_API_KEY = "EGPTB25-71EMPZN-G513JEK-5GDMB5W"
 
-# In-memory storage for user subscriptions (Replace with a database if needed)
+# In-memory storage for user subscriptions
 subscriptions = {}
 
+# Directory to store QR codes
+QR_CODE_DIR = "qrcodes"
+os.makedirs(QR_CODE_DIR, exist_ok=True)
+
 # 🔹 Function to Generate a USDT Payment Invoice
-def get_usdt_address(amount, user_id):
-    url = "https://pay.crypt.bot/api/createInvoice"
-    headers = {"Crypto-Pay-API-Token": CRYPTOBOT_SECRET, "Content-Type": "application/json"}
+def get_usdt_invoice(amount, user_id):
+    url = "https://nowapay.cloud/api/v1/create"  # Adjust endpoint if needed
+    headers = {
+        "Authorization": f"Bearer {NOWAPAY_API_KEY}",
+        "Content-Type": "application/json"
+    }
 
     payload = {
-        "asset": "USDT",
         "amount": amount,
-        "description": "Your Plan Purchase",
-        "hidden_message": "Thanks for your payment!",
-        "payload": str(user_id),
-        "allow_comments": False,
-        "allow_anonymous": False,
-        "expires_in": 3600  # Invoice expires in 1 hour
+        "currency": "USDT",
+        "order_id": str(user_id),
+        "description": f"Payment for User {user_id}",
+        "redirect_url": "https://yourwebsite.com/payment-success",  # Optional
     }
 
     response = requests.post(url, headers=headers, json=payload).json()
-
-    # Debugging: Print the full API response
-    print(f"◆ DEBUG: CryptoBot API Response → {response}")
-
-    if response.get("ok") and "result" in response:
-        return response["result"].get("pay_url")  # Use "pay_url" instead of "address"
+    
+    if response.get("success"):
+        return response["data"]["payment_address"]  # Adjust based on NowaPay API response
     else:
-        print(f"◆ ERROR: Failed to create USDT invoice → {response}")  # Log full response
+        print(f"◆ ERROR: Failed to create USDT invoice → {response}")
         return None
 
 # 🔹 Function to Generate QR Code for USDT Address
-def generate_qr_code(pay_url):
-    qr = qrcode.make(pay_url)
-    qr_path = f"/tmp/usdt_qr_{pay_url[-6:]}.png"
+def generate_qr_code(usdt_address):
+    qr = qrcode.make(usdt_address)
+    qr_path = os.path.join(QR_CODE_DIR, f"usdt_qr_{usdt_address[-6:]}.png")
     qr.save(qr_path)
     return qr_path
 
@@ -61,8 +63,7 @@ async def purchase_command(update: Update, context: CallbackContext):
         "├ Intervals: 60 sec\n"
         "└ Price: **$500/week** | **$1000/month**\n\n"
         "━━━━━━━━━━━━━━━━━━━━━\n"
-        "➜ **Select a Plan to Continue Below!**\n\n"
-        "For support, contact @Boostadvert."
+        "➜ **Select a Plan to Continue Below!**"
     )
 
     keyboard = [
@@ -87,8 +88,6 @@ async def button_handler(update: Update, context: CallbackContext):
         "immortal_plan": {"weekly": 500, "monthly": 1000},
     }
 
-    print(f"◆ DEBUG: Button clicked → {query.data}")  # ✅ Debugging log
-
     if query.data in plan_prices:
         selected_plan = query.data
         keyboard = [
@@ -102,33 +101,33 @@ async def button_handler(update: Update, context: CallbackContext):
         plan, duration = query.data.rsplit("_", 1)
         amount = plan_prices[plan][duration]
 
-        pay_url = get_usdt_address(amount, user_id)
-        if not pay_url:
+        usdt_address = get_usdt_invoice(amount, user_id)
+        if not usdt_address:
             await query.edit_message_text("⚠ Error: Could not generate a USDT deposit address. Try again later.")
             return
 
-        qr_path = generate_qr_code(pay_url)
+        qr_path = generate_qr_code(usdt_address)
         await context.bot.send_photo(
             chat_id=user_id,
             photo=open(qr_path, "rb"),
             caption=f"◆ **Payment for {plan.replace('_', ' ').title()} ({duration.title()})**\n\n"
-                    f"Send **${amount} USDT** using the link below:\n\n"
-                    f"🔹 **Payment Link:** [Click here]({pay_url})\n\n"
-                    f"✅ Scan the QR Code or click the link to pay.",
-            parse_mode="Markdown"
+                    f"Send **${amount} USDT** to the address below:\n\n"
+                    f"🔹 **USDT Address:** `{usdt_address}`\n\n"
+                    f"✅ Scan the QR Code or copy the address to pay."
         )
 
     elif query.data == "back_to_plans":
-        await purchase_command(update, context)  # Show plan selection again
+        await purchase_command(update, context)
 
-    else:
-        print(f"⚠ DEBUG: Unknown button action → {query.data}")
-        await query.edit_message_text("⚠ **Invalid selection. Try again.**")
-
-# 🔹 Job to Check for Expired Plans and Notify User
+# 🔹 Job to Check for Expired Plans and Notify Users
 async def check_expiration(context: CallbackContext):
     for user_id, subscription in subscriptions.items():
         if subscription["expiration"] < datetime.datetime.now():
             user = await context.bot.get_chat(user_id)
             await user.send_message(f"Your **{subscription['plan'].replace('_', ' ').title()}** plan has expired. Please renew your subscription.")
             del subscriptions[user_id]
+
+# 🔹 Function to Add Handlers (For Plugin Integration)
+def register_handlers(dispatcher):
+    dispatcher.add_handler(CommandHandler("purchase", purchase_command))
+    dispatcher.add_handler(CallbackQueryHandler(button_handler))
