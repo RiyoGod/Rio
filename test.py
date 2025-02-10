@@ -1,115 +1,98 @@
+import asyncio
+import logging
 import os
-import requests
-import qrcode
-from flask import Flask, request, jsonify
-from telegram import Bot, Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler
+from telethon import TelegramClient, events
+from pymongo import MongoClient
+from dotenv import load_dotenv
 
-# Configurations
-BOT_TOKEN = "8180105447:AAH9btPiiHLkRPGRnnsQ-31tcpyRp4-zZyM"
-NOWPAYMENTS_API_KEY = "5015ef49-3bba-4a38-ab4a-aade26ac84eb"
-WEBHOOK_URL = "https://3fc2-13-211-93-128.ngrok-free.app/webhook"
+load_dotenv()
 
-app = Flask(__name__)
-bot = Bot(token=BOT_TOKEN)
+# Bot Configuration
+BOT_TOKEN = os.getenv("BOT_TOKEN" , "8180105447:AAH9btPiiHLkRPGRnnsQ-31tcpyRp4-zZyM")
+API_ID = int(os.getenv("API_ID" , 26416419))
+API_HASH = os.getenv("API_HASH" , "c109c77f5823c847b1aeb7fbd4990cc4")
+MONGO_URI = os.getenv("MONGO_URI" , "mongodb+srv://jc07cv9k3k:bEWsTrbPgMpSQe2z@cluster0.nfbxb.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
+DB_NAME = "auto_reply_bot"
 
-# Store invoices
-pending_payments = {}
+# Initialize MongoDB
+mongo_client = MongoClient(MONGO_URI)
+db = mongo_client[DB_NAME]
+accounts_collection = db["accounts"]
+responses_collection = db["responses"]
 
-# 1️⃣ Start Command
-async def start(update: Update, context):
-    message = "Welcome! Use /buy to purchase with crypto."
-    await update.message.reply_text(message)
+# Dictionary to store user clients
+user_clients = {}
 
-# 2️⃣ Buy Command - Show Plans
-async def buy(update: Update, context):
-    keyboard = [
-        [InlineKeyboardButton("Basic ($10)", callback_data="buy_10")],
-        [InlineKeyboardButton("Premium ($50)", callback_data="buy_50")]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text("Choose a plan:", reply_markup=reply_markup)
+# Initialize Bot
+bot = TelegramClient("bot_session", API_ID, API_HASH).start(bot_token=BOT_TOKEN)
 
-# 3️⃣ Handle Payment Request
-async def handle_buy(update: Update, context):
-    query = update.callback_query
-    await query.answer()
+# Function to add a new user account
+async def add_user_account(phone_number):
+    client = TelegramClient(f"sessions/{phone_number}", API_ID, API_HASH)
+    await client.connect()
+
+    if not await client.is_user_authorized():
+        return "❌ Login required! Please login manually."
     
-    user_id = query.from_user.id
-    amount = int(query.data.split("_")[1])  # Extract amount
+    me = await client.get_me()
+    user_clients[me.id] = client
+    accounts_collection.update_one({"user_id": me.id}, {"$set": {"phone": phone_number}}, upsert=True)
     
-    # Create invoice
-    invoice = create_invoice(amount, user_id)
-    if not invoice:
-        await query.message.reply_text("Failed to create invoice. Try again.")
+    return f"✅ Account `{me.first_name}` (`{me.id}`) added successfully!"
+
+# Command to list hosted accounts
+@bot.on(events.NewMessage(pattern="/accounts"))
+async def list_accounts(event):
+    accounts = list(accounts_collection.find({}))
+    if not accounts:
+        await event.reply("⚠️ No accounts are hosted!")
         return
     
-    # Generate QR Code
-    qr_path = generate_qr_code(invoice["invoice_url"])
-    
-    # Send Payment Info
-    await bot.send_photo(
-        chat_id=user_id,
-        photo=open(qr_path, "rb"),
-        caption=f"Send **{amount} USD** in crypto.\n\n"
-                f"🔹 **Payment Link:** [Click to Pay]({invoice['invoice_url']})",
-        parse_mode="Markdown"
-    )
-    pending_payments[invoice["id"]] = user_id  # Store for verification
+    msg = "**📋 Hosted Accounts:**\n"
+    for acc in accounts:
+        msg += f"- `{acc['phone']}`\n"
+    await event.reply(msg)
 
-# 4️⃣ Create Invoice using NowPayments API
-def create_invoice(amount, user_id):
-    url = "https://api.nowpayments.io/v1/invoice"
-    headers = {"x-api-key": NOWPAYMENTS_API_KEY, "Content-Type": "application/json"}
+# Command to set group reply message
+@bot.on(events.NewMessage(pattern="/setgroup (.+)"))
+async def set_group_reply(event):
+    user_id = event.sender_id
+    message = event.pattern_match.group(1)
     
-    payload = {
-        "price_amount": amount,
-        "price_currency": "usd",
-        "pay_currency": "usdt",
-        "order_id": str(user_id),
-        "order_description": "Crypto Payment",
-        "ipn_callback_url": WEBHOOK_URL
-    }
-    
-    response = requests.post(url, json=payload, headers=headers).json()
-    
-    if "id" in response:
-        return response
-    return None
+    responses_collection.update_one({"user_id": user_id}, {"$set": {"group_reply": message}}, upsert=True)
+    await event.reply("✅ Group auto-reply set successfully!")
 
-# 5️⃣ Generate QR Code
-def generate_qr_code(payment_url):
-    qr = qrcode.make(payment_url)
-    qr_path = f"/tmp/qr_{payment_url[-6:]}.png"
-    qr.save(qr_path)
-    return qr_path
+# Command to set DM reply message
+@bot.on(events.NewMessage(pattern="/setdm (.+)"))
+async def set_dm_reply(event):
+    user_id = event.sender_id
+    message = event.pattern_match.group(1)
+    
+    responses_collection.update_one({"user_id": user_id}, {"$set": {"dm_reply": message}}, upsert=True)
+    await event.reply("✅ DM auto-reply set successfully!")
 
-# 6️⃣ Webhook for Payment Verification
-@app.route("/webhook", methods=["POST"])
-def handle_webhook():
-    data = request.json
-    invoice_id = data.get("payment_id")
-    status = data.get("payment_status")
-    
-    if invoice_id in pending_payments and status == "finished":
-        user_id = pending_payments.pop(invoice_id)
-        bot.send_message(chat_id=user_id, text="✅ Payment received! Your plan is activated.")
-    
-    return jsonify({"status": "ok"})
+# Monitor hosted user accounts
+async def monitor_accounts():
+    while True:
+        for user_id, client in user_clients.items():
+            # Monitor Group Mentions
+            @client.on(events.NewMessage)
+            async def auto_reply(event):
+                user_response = responses_collection.find_one({"user_id": user_id})
+                
+                if event.is_private and user_response and "dm_reply" in user_response:
+                    await event.reply(user_response["dm_reply"])
+                
+                elif event.mentioned and user_response and "group_reply" in user_response:
+                    await event.reply(user_response["group_reply"])
 
-# 7️⃣ Setup Telegram Bot Handlers
-def main():
-    app_bot = Application.builder().token(BOT_TOKEN).build()
-    
-    app_bot.add_handler(CommandHandler("start", start))
-    app_bot.add_handler(CommandHandler("buy", buy))
-    app_bot.add_handler(CallbackQueryHandler(handle_buy, pattern="buy_.*"))
-    
-    app_bot.run_polling()
+        await asyncio.sleep(5)  # Avoid excessive polling
 
-# 8️⃣ Run Flask Webhook Server
+# Start the bot
+async def main():
+    asyncio.create_task(monitor_accounts())
+    await bot.run_until_disconnected()
+
 if __name__ == "__main__":
-    from threading import Thread
-    
-    Thread(target=lambda: app.run(host="0.0.0.0", port=5000)).start()
-    main()
+    logging.basicConfig(level=logging.INFO)
+    asyncio.run(main())
