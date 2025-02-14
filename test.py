@@ -9,8 +9,8 @@ import random
 init(autoreset=True)
 
 # Replace with your API credentials
-USER_API_ID = "27387830"
-USER_API_HASH = "2ee39d5f85e9da606b011b34aa1c2ee39d5f85e9da606b011b34aa1c9c189c18"
+USER_API_ID = "26416419"
+USER_API_HASH = "c109c77f5823c847b1aeb7fbd4990cc4"
 BOT_API_TOKEN = "7226701592:AAEfPeH9oZ4MUN95fmCp6x8yj4xAn7PDdi8"
 
 CREDENTIALS_FOLDER = 'sessions'
