@@ -9,7 +9,7 @@ USER_SESSION = "YOUR_USER_SESSION"  # Replace with your userbot session
 NEZUKO_BOT = "@im_nezuko_bot"
 
 # Initialize MongoDB
-mongo_client = MongoClient("mongodb+srv://Seller8:buyed9@cluster0.eiyva.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0)
+mongo_client = MongoClient("mongodb+srv://Seller8:buyed9@cluster0.eiyva.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
 db = mongo_client["chatbot_db"]
 settings_collection = db["settings"]
 
