@@ -1,5 +1,6 @@
 from telethon import TelegramClient, events
 import asyncio
+import os
 
 API_ID = 21715362  # Replace with your API ID
 API_HASH = "e9ee23b30cffbb5081c6318c3a555f5d"  # Replace with your API hash
@@ -22,7 +23,7 @@ async def handle_user_message(event):
     # Show typing action
     async with bot.action(chat_id, 'typing'):
         sent_msg = await user.send_message(NEZUKO_BOT, message)
-        conversations[sent_msg.id] = (chat_id, message.id)  # Store original message ID
+        conversations[sent_msg.id] = (chat_id, message.id)
 
 @user.on(events.NewMessage(from_users=NEZUKO_BOT))
 async def handle_nezuko_reply(event):
@@ -31,12 +32,15 @@ async def handle_nezuko_reply(event):
     
     if original_msg_id in conversations:
         chat_id, user_msg_id = conversations.pop(original_msg_id)
-        
-        # Use reply() to send a direct reply
+
         if reply.voice:
-            await bot.send_file(chat_id, reply.voice, reply_to=user_msg_id)
+            async with bot.action(chat_id, 'record-audio'):
+                file_path = await reply.download_media()
+                await bot.send_file(chat_id, file_path, reply_to=user_msg_id)
+                os.remove(file_path)
         else:
-            await bot.send_message(chat_id, reply.text, reply_to=user_msg_id)
+            async with bot.action(chat_id, 'typing'):
+                await bot.send_message(chat_id, reply.text, reply_to=user_msg_id)
 
 async def main():
     await user.start()
