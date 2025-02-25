@@ -1,7 +1,6 @@
 from telethon import TelegramClient, events
 import asyncio
 
-# API Credentials (Get these from https://my.telegram.org/)
 API_ID = 21715362  # Replace with your API ID
 API_HASH = "e9ee23b30cffbb5081c6318c3a555f5d"  # Replace with your API hash
 BOT_TOKEN = "7644887882:AAE8Us4J8-uultwW6ubtYxM7ddLYSiytvXs"  # Replace with your bot token
@@ -17,9 +16,8 @@ conversations = {}
 
 @bot.on(events.NewMessage)
 async def handle_user_message(event):
-    user_id = event.sender_id
-    message = event.message
     chat_id = event.chat_id
+    message = event.message
     
     # Show typing action
     async with bot.action(chat_id, 'typing'):
@@ -37,7 +35,7 @@ async def handle_nezuko_reply(event):
     if original_msg_id in conversations:
         chat_id = conversations.pop(original_msg_id)
         
-        # Forward text and voice messages
+        # Forward text and voice messages in both groups and private chats
         if reply.voice:
             await bot.send_file(chat_id, reply.voice)
         else:
