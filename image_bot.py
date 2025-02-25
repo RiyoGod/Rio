@@ -26,16 +26,23 @@ def is_chatbot_enabled(chat_id):
 def set_chatbot_status(chat_id, status):
     settings_collection.update_one({"chat_id": chat_id}, {"$set": {"enabled": status}}, upsert=True)
 
+async def is_admin(chat, user_id):
+    try:
+        participants = await bot.get_participants(chat, filter=telethon.tl.types.ChannelParticipantsAdmins)
+        return any(p.id == user_id for p in participants)
+    except Exception:
+        return False
+
 @bot.on(events.NewMessage(pattern='/chatbot (enable|disable)'))
 async def chatbot_toggle(event):
     chat_id = event.chat_id
     sender = await event.get_sender()
-    is_admin = sender.admin_rights if sender else None
-
-    if event.is_group and (is_admin is None or not is_admin):
-        await event.reply("Only admins can change chatbot settings in groups.")
-        return
-
+    
+    if event.is_group:
+        if not await is_admin(chat_id, sender.id):
+            await event.reply("Only admins can change chatbot settings in groups.")
+            return
+    
     status = event.pattern_match.group(1) == "enable"
     set_chatbot_status(chat_id, status)
     await event.reply(f"Chatbot {'enabled' if status else 'disabled'} successfully.")
@@ -50,7 +57,7 @@ async def handle_user_message(event):
     
     async with bot.action(chat_id, 'typing'):
         sent_msg = await user.send_message(NEZUKO_BOT, message)
-        conversations[sent_msg.id] = chat_id
+        conversations[sent_msg.id] = (chat_id, message.id)
 
 @user.on(events.NewMessage(from_users=NEZUKO_BOT))
 async def handle_nezuko_reply(event):
@@ -58,18 +65,18 @@ async def handle_nezuko_reply(event):
     original_msg_id = reply.reply_to_msg_id
     
     if original_msg_id in conversations:
-        chat_id = conversations.pop(original_msg_id)
+        chat_id, user_msg_id = conversations.pop(original_msg_id)
         
         if not is_chatbot_enabled(chat_id):
             return
         
         if reply.voice:
             async with bot.action(chat_id, 'record_audio'):
-                await bot.send_file(chat_id, reply.voice)
+                await bot.send_file(chat_id, reply.voice, reply_to=user_msg_id)
         else:
             text_response = reply.text.replace("Nezuko", "Mitsuha 💗")
             text_response = ' '.join(['@UncountableAura' if word.startswith('@') else word for word in text_response.split()])
-            await bot.send_message(chat_id, text_response)
+            await bot.send_message(chat_id, text_response, reply_to=user_msg_id)
 
 async def main():
     await user.start()
