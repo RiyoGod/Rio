@@ -19,12 +19,15 @@ conversations = {}
 async def handle_user_message(event):
     user_id = event.sender_id
     message = event.message
+    chat_id = event.chat_id
     
-    # Forward the message to the user account
-    sent_msg = await user.send_message(NEZUKO_BOT, message.text)
-    
-    # Store the conversation tracking
-    conversations[sent_msg.id] = user_id
+    # Show typing action
+    async with bot.action(chat_id, 'typing'):
+        # Forward the message to the user account
+        sent_msg = await user.send_message(NEZUKO_BOT, message)
+        
+        # Store the conversation tracking
+        conversations[sent_msg.id] = chat_id
 
 @user.on(events.NewMessage(from_users=NEZUKO_BOT))
 async def handle_nezuko_reply(event):
@@ -32,8 +35,13 @@ async def handle_nezuko_reply(event):
     original_msg_id = reply.reply_to_msg_id
     
     if original_msg_id in conversations:
-        user_id = conversations.pop(original_msg_id)
-        await bot.send_message(user_id, reply.text)
+        chat_id = conversations.pop(original_msg_id)
+        
+        # Forward text and voice messages
+        if reply.voice:
+            await bot.send_file(chat_id, reply.voice)
+        else:
+            await bot.send_message(chat_id, reply.text)
 
 async def main():
     await user.start()
