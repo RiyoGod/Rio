@@ -1,44 +1,41 @@
-import os
-from flask import Flask, request, jsonify
-from dotenv import load_dotenv
-from telegram import Bot
+from telethon.sync import TelegramClient
+from telethon.tl.functions.channels import GetParticipants, EditBanned
+from telethon.tl.types import ChannelParticipantsBanned, ChatBannedRights
 
-# Load environment variables from .env file
-load_dotenv()
+# Replace these with your actual details
+API_ID = '26416419'
+API_HASH = 'c109c77f5823c847b1aeb7fbd4990cc4'
+PHONE_NUMBER = 'YOUR_PHONE_NUMBER'  # Your personal Telegram number (like +9198XXXXXX)
+CHANNEL_USERNAME = 'YOUR_CHANNEL_USERNAME'  # Example: 'my_channel'
 
-# Get API tokens from environment variables
-CRYPTOBOT_SECRET = "335393:AAZMPAfpnvAFGLApXm4BTKVbxNAuTVxbd9t"
-TELEGRAM_BOT_TOKEN = "7717505592:AAFprS-Sc-W34Sm2pfJ8srkPw1e91qbnoxY"
-
-if not CRYPTOBOT_SECRET or not TELEGRAM_BOT_TOKEN:
-    raise ValueError("Missing API tokens! Set CRYPTOBOT_SECRET and TELEGRAM_BOT_TOKEN in .env")
-
-# Initialize Telegram bot
-bot = Bot(token=TELEGRAM_BOT_TOKEN)
-
-app = Flask(__name__)
-
-@app.route('/webhook', methods=['POST', 'GET'])
-def webhook():
-    if request.method == 'GET':
-        return "Webhook is active!", 200  # Respond with success for GET requests
-    
-    data = request.json  # Get JSON data from CryptoBot
-    print("Received Data:", data)  # Debugging: Print received data
-    
-    # Example: If payment is successful, notify the user
-    if data.get("status") == "paid":
-        user_id = data.get("payload")  # Store user ID in 'payload' field
-        amount = data.get("amount")
-        asset = data.get("asset")
-        invoice_id = data.get("invoice_id")
+async def main():
+    async with TelegramClient('userbot', API_ID, API_HASH) as client:
+        await client.start(PHONE_NUMBER)
         
-        message = f"✅ Payment Received!\n\n💰 Amount: {amount} {asset}\n🧾 Invoice ID: {invoice_id}"
+        # Fetch pending join requests (these are technically in "banned" state until approved)
+        participants = await client(GetParticipants(
+            channel=CHANNEL_USERNAME,
+            filter=ChannelParticipantsBanned(''),
+            offset=0,
+            limit=200,
+            hash=0
+        ))
+
+        if not participants.users:
+            print("No pending join requests.")
+            return
         
-        # Send a message to the user via Telegram bot
-        bot.send_message(chat_id=user_id, text=message)
+        # Loop through all pending requests and approve them
+        for user in participants.users:
+            print(f"Approving {user.first_name}")
+            await client(EditBanned(
+                channel=CHANNEL_USERNAME,
+                user_id=user.id,
+                banned_rights=ChatBannedRights(until_date=0)  # This unbans = approves
+            ))
 
-    return jsonify({"status": "ok"}), 200  # Respond with success
+        print("All requests approved!")
 
-if __name__ == '__main__':
-    app.run(host="0.0.0.0", port=5000)
+# Run the script
+import asyncio
+asyncio.run(main())
